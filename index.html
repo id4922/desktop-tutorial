@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的隨身記帳</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", Roboto, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h2 { margin: 0 0 15px 0; color: #333; font-size: 1.2rem;}
+
+        .total-section {
+            background: #e3f2fd;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .total-label { font-size: 0.9rem; color: #555; }
+        .total-amount { font-size: 2.5rem; color: #1976d2; font-weight: bold; margin: 5px 0; }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-sizing: border-box;
+            outline: none;
+            -moz-appearance: textfield; /* Firefox */
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input:focus { border-color: #2196f3; }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 15px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: #2196f3;
+            color: white;
+            font-weight: 500;
+            touch-action: manipulation; /* 優化觸控 */
+        }
+        .btn:active { background-color: #1565c0; transform: scale(0.96); }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-danger { background-color: #ffcdd2; color: #c62828; }
+        .btn-success { background-color: #c8e6c9; color: #2e7d32; }
+
+        .log-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .log-info { display: flex; flex-direction: column; }
+        .log-time { font-size: 0.75rem; color: #999; margin-bottom: 2px;}
+        .log-cat { font-weight: bold; color: #444; }
+        .log-money { font-weight: bold; color: #2c3e50; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>今日消費</h2>
+    
+    <div class="total-section">
+        <div class="total-label">目前總計</div>
+        <div class="total-amount">$<span id="totalMoney">0</span></div>
+    </div>
+
+    <input type="number" id="amountInput" placeholder="輸入金額" inputmode="decimal">
+
+    <div class="button-grid">
+        <button class="btn" onclick="addRecord('早餐')">早餐</button>
+        <button class="btn" onclick="addRecord('午餐')">午餐</button>
+        <button class="btn" onclick="addRecord('咖啡')">咖啡</button>
+        <button class="btn" onclick="addRecord('晚餐')">晚餐</button>
+        <button class="btn" style="background-color: #7e57c2;" onclick="addRecord('雜支')">雜支</button>
+        <button class="btn" style="background-color: #7e57c2;" onclick="addRecord('交通')">交通</button>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn-small btn-danger" onclick="clearData()">🗑️ 清空</button>
+        <button class="btn-small btn-success" onclick="exportCSV()">📥 下載 CSV</button>
+    </div>
+
+    <ul class="log-list" id="logList"></ul>
+</div>
+
+<script>
+    let records = [];
+    const totalEl = document.getElementById('totalMoney');
+    const inputEl = document.getElementById('amountInput');
+    const listEl = document.getElementById('logList');
+
+    // 1. 初始化：打開網頁時，讀取舊資料
+    window.onload = function() {
+        const savedData = localStorage.getItem('myMoneyRecords');
+        if (savedData) {
+            records = JSON.parse(savedData);
+            render();
+        }
+    };
+
+    function addRecord(category) {
+        const amount = parseInt(inputEl.value);
+        if (isNaN(amount) || amount <= 0) {
+            alert("請輸入金額！");
+            return;
+        }
+
+        // 建立資料物件
+        const now = new Date();
+        const newRecord = {
+            id: Date.now(), // 唯一ID
+            timestamp: now.toLocaleString(), // 完整時間格式
+            timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
+            category: category,
+            amount: amount
+        };
+
+        // 加入陣列並儲存
+        records.unshift(newRecord); // 加到最前面
+        saveAndRender();
+        
+        inputEl.value = '';
+        inputEl.focus();
+    }
+
+    function saveAndRender() {
+        // 存入 localStorage
+        localStorage.setItem('myMoneyRecords', JSON.stringify(records));
+        render();
+    }
+
+    function render() {
+        // 計算總和
+        const total = records.reduce((sum, r) => sum + r.amount, 0);
+        totalEl.textContent = total;
+
+        // 繪製列表
+        listEl.innerHTML = '';
+        records.forEach(r => {
+            const li = document.createElement('li');
+            li.className = 'log-item';
+            li.innerHTML = `
+                <div class="log-info">
+                    <span class="log-time">${r.timestamp}</span>
+                    <span class="log-cat">${r.category}</span>
+                </div>
+                <span class="log-money">$${r.amount}</span>
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    function clearData() {
+        if(confirm("確定要清空所有紀錄嗎？")) {
+            records = [];
+            saveAndRender();
+        }
+    }
+
+    function exportCSV() {
+        if(records.length === 0) {
+            alert("沒有資料可以匯出");
+            return;
+        }
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM for Excel
+        csvContent += "時間,項目,金額\n";
+        
+        records.forEach(function(row) {
+            csvContent += `${row.timestamp},${row.category},${row.amount}\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "my_money_log.csv");
+        document.body.appendChild(link);
+        link.click();
+    }
+</script>
+
+</body>
+</html>
