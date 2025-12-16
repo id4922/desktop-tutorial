@@ -1,93 +1,108 @@
-/* --- 保留原本所有的 CSS，請將以下內容 "追加" 或 "覆蓋" 原本的樣式 --- */
+/* --- CSS 樣式 --- */
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; 
+    margin: 0; padding-bottom: 80px; 
+    -webkit-tap-highlight-color: transparent;
+    /* 初始預設背景 (漸層綠) */
+    background: linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%);
+    min-height: 100vh;
+    transition: background 0.5s ease;
+}
 
-/* 基礎設定同前... */
-body { font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; background-color: #f0f2f5; margin: 0; padding-bottom: 70px; -webkit-tap-highlight-color: transparent; }
-.container { max-width: 600px; margin: 0 auto; padding: 20px; background: white; min-height: 100vh; }
-.tab-content { display: none; }
-.tab-content.active { display: block; animation: fadeIn 0.3s; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.container { 
+    max-width: 600px; margin: 0 auto; padding: 20px; 
+    background: rgba(255, 255, 255, 0.85); /* 半透明白底 */
+    backdrop-filter: blur(10px);
+    min-height: 100vh;
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+}
 
-/* 首頁元件 */
-.total-section { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); border-radius: 16px; padding: 20px; margin-bottom: 25px; color: white; text-align: center; }
-.total-amount { font-size: 2.8rem; font-weight: 700; margin: 0; }
+/* 總金額卡片 */
+.total-section { 
+    background: white; 
+    border-radius: 20px; padding: 20px; margin-bottom: 20px; 
+    text-align: center; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+.total-label { font-size: 0.9rem; color: #888; margin-bottom: 5px; }
+.total-amount { font-size: 2.8rem; font-weight: 700; color: #333; margin: 0; }
 
-/* Grid 樣式優化 */
+/* 功能列 */
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.section-title { font-size: 1.1rem; color: #444; font-weight: bold; margin: 0; }
+
+.btn-icon { 
+    background: white; border: none; font-size: 1.2rem; padding: 8px; 
+    border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; margin-left: 8px;
+}
+
+/* Grid 按鈕區 */
 .category-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 30px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 30px;
 }
 
 .cat-btn {
-    background-color: white;
-    border: 2px solid #e0e0e0;
-    border-radius: 16px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #555;
-    cursor: pointer;
+    border: none; border-radius: 18px;
+    font-size: 1.1rem; font-weight: 600; color: #555;
     aspect-ratio: 1 / 1; 
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    position: relative; /* 為了放編輯圖示 */
-    touch-action: manipulation;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: transform 0.1s;
+    background: white; /* 預設白 */
+    padding: 5px;
+    text-align: center;
+    word-break: break-all;
 }
-.cat-btn:active { transform: scale(0.95); background-color: #f5f5f5; }
+.cat-btn:active { transform: scale(0.95); }
 
-/* 編輯模式下的樣式 */
-.edit-mode .cat-btn {
-    border-color: #ffb74d;
-    background-color: #fff8e1;
-    animation: shake 0.3s infinite alternate; /* 抖動效果 */
-}
-/* 拖曳中的樣式 */
-.sortable-ghost { opacity: 0.4; background: #e0e0e0; }
+/* 編輯模式特效 */
+.edit-mode .cat-btn { animation: shake 0.3s infinite alternate; border: 2px dashed #ffa726; }
+@keyframes shake { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
 
-/* 新增按鈕 */
-.btn-add-cat {
-    border: 2px dashed #ccc;
-    color: #aaa;
-    background: transparent;
-    font-size: 2rem;
-}
+.btn-add-cat { border: 2px dashed #ccc; background: rgba(255,255,255,0.5); font-size: 2rem; color: #999; }
 
-@keyframes shake {
-    from { transform: rotate(-1deg); }
-    to { transform: rotate(1deg); }
-}
-
-/* 其他共用樣式 (維持不變) */
-.section-title { font-size: 1rem; color: #444; font-weight: bold; border-left: 4px solid #3498db; padding-left: 10px; margin: 20px 0 10px 0; }
-.history-actions { text-align: right; margin-bottom: 10px; }
-.btn-tool { padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: 1px solid #ccc; background: white; color: #555; cursor: pointer;}
-.btn-tool-danger { border-color: red; color: red; }
+/* 列表樣式 */
 .log-list { list-style: none; padding: 0; margin: 0; }
-.log-item { padding: 15px 10px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+.log-item { padding: 15px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
 .log-info { display: flex; flex-direction: column; }
-.log-time { font-size: 0.75rem; color: #aaa; }
+.log-time { font-size: 0.75rem; color: #999; }
 .log-cat { font-size: 1rem; color: #333; font-weight: 500; }
 .log-money { font-size: 1.1rem; font-weight: bold; color: #2c3e50; }
-.history-date-header { background: #f8f9fa; padding: 8px 12px; margin-top: 15px; border-radius: 6px; font-size: 0.9rem; font-weight: bold; display: flex; justify-content: space-between; }
-.daily-total { color: #e67e22; }
 
-/* 底部導覽與 Modal (維持不變) */
-.bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #e0e0e0; display: flex; justify-content: space-around; padding: 10px 0; z-index: 900; }
-.nav-btn { background: none; border: none; font-size: 1rem; color: #999; display: flex; flex-direction: column; align-items: center; }
-.nav-btn.active { color: #3498db; font-weight: bold; }
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: flex-end; backdrop-filter: blur(2px); }
-.modal-content { background: white; width: 100%; max-width: 600px; border-radius: 20px 20px 0 0; padding: 20px; animation: slideUp 0.25s ease-out; display: flex; flex-direction: column; gap: 12px; }
+/* 歷史頁 */
+.history-date-header { background: rgba(0,0,0,0.03); padding: 8px 12px; margin-top: 15px; border-radius: 8px; font-weight: bold; display: flex; justify-content: space-between; color: #555; }
+.daily-total { color: #e91e63; } /* 粉紅色強調 */
+
+/* 底部導覽 */
+.bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; padding: 12px 0; z-index: 900; box-shadow: 0 -2px 10px rgba(0,0,0,0.03); }
+.nav-btn { background: none; border: none; font-size: 1rem; color: #aaa; display: flex; flex-direction: column; align-items: center; }
+.nav-btn.active { color: #e91e63; font-weight: bold; } /* 導覽列改粉色 */
+
+/* Modal 通用 */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-end; backdrop-filter: blur(3px); }
+.modal-content { background: white; width: 100%; max-width: 600px; border-radius: 24px 24px 0 0; padding: 25px; box-sizing: border-box; animation: slideUp 0.25s ease-out; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-header { display: flex; justify-content: space-between; font-weight: bold; color: #444; }
-.btn-close { border:none; background:none; font-size:1.5rem; color:#999; }
-.display-window { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 12px; text-align: right; font-size: 2.2rem; font-weight: bold; color: #333; font-family: monospace; }
-.note-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; text-align: center; }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.num-btn { background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; font-size: 1.4rem; font-weight: 500; }
-.num-btn:active { background: #ddd; transform: translateY(2px); }
-.btn-backspace { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
-.action-row { grid-column: span 3; display: flex; gap: 10px; }
-.btn-confirm { flex: 2; background: #2196f3; color: white; border: none; font-size: 1.1rem; padding: 12px; border-radius: 8px; font-weight: bold; }
-.btn-delete { flex: 1; background: #ff5252; color: white; border: none; font-size: 1.1rem; padding: 12px; border-radius: 8px; font-weight: bold; display: none; }
+
+/* 輸入 Modal */
+.display-window { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: right; font-size: 2.5rem; font-weight: bold; color: #444; margin-bottom: 10px; font-family: monospace; }
+.note-input { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; font-size: 1rem; text-align: center; box-sizing: border-box; margin-bottom: 15px; background: #fdfdfd; }
+.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.num-btn { background: white; border: 1px solid #eee; border-radius: 12px; padding: 15px; font-size: 1.4rem; font-weight: 500; box-shadow: 0 2px 0 #f0f0f0; }
+.num-btn:active { background: #eee; transform: translateY(2px); box-shadow: none;}
+.btn-confirm { grid-column: span 2; background: #e91e63; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #c2185b; }
+.btn-delete { background: #ff5252; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #d32f2f; }
+
+/* 設定 Modal (新) */
+.settings-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
+.color-swatch { 
+    width: 100%; aspect-ratio: 1; border-radius: 50%; border: 2px solid white; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; 
+}
+.color-swatch.selected { border: 3px solid #333; transform: scale(1.1); }
+
+.btn-full-danger { width: 100%; background: #ffebee; color: #d32f2f; padding: 15px; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; font-size: 1rem;}
+
+/* 分頁控制 */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
