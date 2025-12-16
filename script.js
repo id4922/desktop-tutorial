@@ -24,12 +24,20 @@ const THEME_COLORS = [
     { val: "linear-gradient(135deg, #b39ddb 0%, #7e57c2 100%)", label: "深紫" }
 ];
 
+const AUTO_COLORS = [
+    "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
+    "#FF9F40", "#8D6E63", "#EC407A", "#7E57C2", "#26A69A"
+];
+
 let currentAmountStr = '0'; 
 let editingRecordId = null; 
 let currentCategoryName = ''; 
 let isEditMode = false;
 let editingCatIndex = null; 
 let isNewCategory = false;
+let trashSortable = null;
+let expenseChart = null;
+
 // --- 初始化 ---
 window.onload = function() {
     initElements(); 
@@ -59,6 +67,7 @@ window.onload = function() {
 
     renderCategories();
     renderHome();
+	initChartPage();
 };
 
 let modal, displayEl, noteInput, btnConfirmRecord, btnDeleteRecord;
@@ -75,6 +84,25 @@ function initElements() {
     settingNameInput = document.getElementById('settingNameInput');
     colorGrid = document.getElementById('colorGrid');
     bgModal = document.getElementById('bgModal');
+}
+
+function getChartColor(catName, index) {
+    const cat = categories.find(c => c.name === catName);
+    let color = cat ? cat.color : "white";
+
+    // 處理漸層色：取第一個顏色
+    if (color.includes("linear-gradient")) {
+        const match = color.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
+        if (match) color = match[0];
+    }
+
+    // 【關鍵修正】如果顏色是白色 (或是太淺的顏色)，就改用自動色票
+    if (color === 'white' || color === '#ffffff' || color === '#fff') {
+        // 使用 index 取餘數，確保顏色會循環使用
+        color = AUTO_COLORS[index % AUTO_COLORS.length];
+    }
+
+    return color;
 }
 
 // --- 渲染與拖曳設定 ---
@@ -124,26 +152,59 @@ function handleCategoryClick(index) {
     }
 }
 
+// --- script.js 修改區 ---
+
 function setupSortable() {
     if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
+    if (trashSortable) { trashSortable.destroy(); trashSortable = null; }
     
-    // 只有編輯模式才啟用拖曳
-    sortableInstance = new Sortable(categoryGrid, {
-        animation: 150, 
-        disabled: !isEditMode, 
-        filter: '.btn-add-cat',
-        
-        // --- 關鍵修復：解決手機點擊無效的問題 ---
-        delay: 200,             // 按住 200ms 後才算拖曳
-        delayOnTouchOnly: true, // 只在手機上啟用延遲 (電腦不影響)
-        touchStartThreshold: 5, // 手指移動超過 5px 才算拖曳
-        // ----------------------------------------
+    if (!isEditMode) return;
 
+    const delZone = document.getElementById('deleteZone');
+
+    // A. 設定「按鈕列表」 (來源)
+    sortableInstance = new Sortable(categoryGrid, {
+        group: 'shared',
+        animation: 150, 
+        disabled: false,
+        filter: '.btn-add-cat',
+        delay: 200, 
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
+        
         onEnd: function (evt) {
-            const item = categories.splice(evt.oldIndex, 1)[0];
-            categories.splice(evt.newIndex, 0, item);
-            // 這裡必須設為 true (重新渲染)，否則 DOM 順序變了但 onclick 的 index 還是舊的
-            saveCategories(true); 
+            if (evt.to === categoryGrid) {
+                const item = categories.splice(evt.oldIndex, 1)[0];
+                categories.splice(evt.newIndex, 0, item);
+                saveCategories(false); 
+            }
+        }
+    });
+
+    // B. 設定「刪除區」 (目的地)
+    trashSortable = new Sortable(delZone, {
+        group: 'shared',
+        ghostClass: 'delete-zone-hover',
+        
+        // --- 這裡有重大修改 ---
+        onAdd: function (evt) {
+            const oldIndex = evt.oldIndex;
+            const item = categories[oldIndex];
+
+            // 【關鍵修正】
+            // 立即把被拖進來的那個按鈕元素從紅色框框中移除！
+            // 這樣它就不會「卡」在裡面了。
+            evt.item.remove(); 
+
+            // 接著執行刪除確認邏輯
+            if (confirm(`確定要刪除「${item.name}」嗎？`)) {
+                categories.splice(oldIndex, 1);
+                saveCategories(true); // 存檔並重繪 (按鈕真正消失)
+            } else {
+                // 如果取消，因為我們剛剛把 DOM 刪了，
+                // 必須呼叫重繪，讓按鈕在原本的列表中「復活」
+                renderCategories();
+            }
         }
     });
 }
@@ -202,18 +263,6 @@ function saveCategorySettings() {
     closeSettingsModal();
 }
 
-function deleteCategory() {
-    // 為了安全，如果是舊按鈕才跳詢問；如果是剛新增的(還沒改名)，直接刪除不囉嗦
-    if (!isCreatingNew && !confirm(`確定要刪除「${categories[editingCatIndex].name}」嗎？`)) {
-        return;
-    }
-    
-    categories.splice(editingCatIndex, 1);
-    saveCategories();
-    
-    isCreatingNew = false; // 既然手動刪了，就不用再自動刪
-    settingsModal.style.display = 'none'; // 不要呼叫 closeSettingsModal() 避免邏輯打架，直接隱藏
-}
 function addNewCategory() {
     categories.push({ name: "新項目", color: "white" });
     saveCategories(); 
@@ -243,14 +292,18 @@ function saveCategories(render = true) {
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const btn = document.getElementById('btnToggleEdit');
+    const delZone = document.getElementById('deleteZone'); // 取得刪除區元素
+    
     if (isEditMode) {
         btn.style.background = "#fff9c4"; 
         categoryGrid.classList.add('edit-mode');
+        delZone.style.display = 'flex'; // 顯示刪除區
     } else {
         btn.style.background = "white";
         categoryGrid.classList.remove('edit-mode');
+        delZone.style.display = 'none'; // 隱藏刪除區
     }
-    // 切換模式時重新渲染，確保 Sortable 設定正確
+    // 重新渲染以套用新的 Sortable 設定
     renderCategories();
 }
 
@@ -350,6 +403,166 @@ function renderHistory() {
             lastDate = dStr;
         }
         if (ul) ul.appendChild(createLogItem(r));
+    });
+}
+
+function initChartPage() {
+    // 預設選擇「近一周」
+    setDateRange('week');
+    
+    // 綁定日期改變事件，當用戶手動改日期時，重新畫圖
+    document.getElementById('startDate').addEventListener('change', updateChart);
+    document.getElementById('endDate').addEventListener('change', updateChart);
+}
+
+function setDateRange(type) {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date(); // 預設就是今天
+
+    if (type === 'week') {
+        // 近一周 (包含今天往前推6天，共7天)
+        start.setDate(today.getDate() - 6);
+    } else if (type === 'month') {
+        // 近一月 (30天)
+        start.setDate(today.getDate() - 29);
+    } else if (type === 'thisMonth') {
+        // 本月份 (1號 ~ 今天)
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (type === 'thisWeek') {
+        // 本周 (周一 ~ 今天)
+        // getDay(): 0是周日, 1是周一...
+        // 如果今天是周日(0)，要往前推6天到上周一
+        // 如果今天是周一(1)，往前推0天
+        let day = today.getDay(); 
+        let diff = day === 0 ? 6 : day - 1; 
+        start.setDate(today.getDate() - diff);
+    }
+
+    // 將日期格式化為 YYYY-MM-DD 填入 input
+    document.getElementById('startDate').value = formatDateInput(start);
+    document.getElementById('endDate').value = formatDateInput(end);
+
+    // 更新圖表
+    updateChart();
+}
+
+function formatDateInput(date) {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function updateChart() {
+    const startStr = document.getElementById('startDate').value;
+    const endStr = document.getElementById('endDate').value;
+    
+    if (!startStr || !endStr) return;
+
+    // 將字串轉為時間戳記進行比較 (00:00:00 ~ 23:59:59)
+    const startTime = new Date(startStr).setHours(0,0,0,0);
+    const endTime = new Date(endStr).setHours(23,59,59,999);
+
+    // 1. 篩選範圍內的資料
+    const filteredRecords = records.filter(r => {
+        return r.id >= startTime && r.id <= endTime;
+    });
+
+    // 2. 統計各分類金額 (合併備註)
+    const stats = {};
+    let totalSum = 0;
+
+    filteredRecords.forEach(r => {
+        // 使用 pureCategory (已在之前的程式碼中儲存，去除了括號備註)
+        // 如果舊資料沒有 pureCategory，則用 split 處理
+        const catName = r.pureCategory || r.category.split(' (')[0];
+        
+        if (!stats[catName]) stats[catName] = 0;
+        stats[catName] += r.amount;
+        totalSum += r.amount;
+    });
+
+    // 3. 轉為陣列並排序 (金額大到小)
+    const sortedStats = Object.keys(stats)
+        .map(key => ({ name: key, amount: stats[key] }))
+        .sort((a, b) => b.amount - a.amount);
+
+    // 4. 準備繪圖
+    renderChart(sortedStats, totalSum);
+    renderLegend(sortedStats, totalSum);
+}
+
+function renderChart(data, totalSum) {
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+
+    // 使用新的輔助函式來產生顏色陣列
+    const bgColors = data.map((item, index) => getChartColor(item.name, index));
+
+    if (expenseChart) expenseChart.destroy();
+
+    if (data.length === 0) return; 
+
+    expenseChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.map(d => d.name),
+            datasets: [{
+                data: data.map(d => d.amount),
+                backgroundColor: bgColors,
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            let value = context.raw;
+                            let percent = Math.round((value / totalSum) * 100) + '%';
+                            return `${label}: $${value.toLocaleString()} (${percent})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderLegend(data, totalSum) {
+    const container = document.getElementById('chartLegend');
+    container.innerHTML = '';
+
+    if (data.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;">此區間無支出資料</div>';
+        return;
+    }
+
+    data.forEach((item, index) => {
+        const percent = Math.round((item.amount / totalSum) * 100);
+        
+        // 使用同一個邏輯取得顏色，確保圖例跟圓餅圖顏色一致
+        const color = getChartColor(item.name, index);
+
+        const div = document.createElement('div');
+        div.className = 'legend-item';
+        div.innerHTML = `
+            <div class="legend-info">
+                <span class="legend-color" style="background:${color}"></span>
+                <span class="legend-name">${item.name}</span>
+            </div>
+            <div>
+                <span class="legend-amount">$${item.amount.toLocaleString()}</span>
+                <span class="legend-percent">${percent}%</span>
+            </div>
+        `;
+        container.appendChild(div);
     });
 }
 
