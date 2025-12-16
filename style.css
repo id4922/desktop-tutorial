@@ -92,7 +92,7 @@ body {
     
     /* 4. 關鍵修改：右邊內距加到 24px！ */
     /* 上下10px, 右24px(給卷軸), 左10px */
-    padding: 10px 24px 10px 10px; 
+    padding: 10px 35px 10px 10px; 
     
     width: 100%; 
     box-sizing: border-box;
