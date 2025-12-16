@@ -3,236 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>隨身記帳 V4</title>
-    <style>
-        /* --- V4.0 全局設定 --- */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", Roboto, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 100px; /* 底部留白 */
-            min-height: 100vh;
-            box-sizing: border-box;
-            background: white;
-        }
-
-        /* 總金額區塊 */
-        .total-section {
-            background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 25px;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            text-align: center;
-        }
-        .total-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 5px; }
-        .total-amount { font-size: 2.8rem; font-weight: 700; margin: 0; }
-
-        /* --- 3x3 正方形按鈕網格 --- */
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3欄 */
-            gap: 12px;
-            margin-bottom: 30px;
-        }
-
-        .cat-btn {
-            background-color: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 16px;
-            padding: 0; /* 清除 padding */
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #555;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            
-            /* 關鍵：讓按鈕變正方形並置中內容 */
-            aspect-ratio: 1 / 1; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.1s, background 0.1s;
-        }
-
-        .cat-btn:active {
-            background-color: #f0f0f0;
-            transform: scale(0.95);
-            border-color: #bbb;
-        }
-        
-        /* 特殊色按鈕 */
-        .cat-btn.special { color: #5e35b1; border-color: #d1c4e9; background-color: #fdfbff; }
-
-        /* --- 紀錄列表 --- */
-        .log-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 5px;
-            font-size: 0.9rem;
-            color: #777;
-        }
-        
-        .log-list { list-style: none; padding: 0; margin: 0; }
-        
-        .log-item {
-            padding: 15px 10px;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer; /* 提示可點擊 */
-            transition: background 0.2s;
-        }
-        .log-item:active { background-color: #f9f9f9; } /* 點擊回饋 */
-
-        .log-info { display: flex; flex-direction: column; }
-        .log-time { font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
-        .log-cat { font-size: 1rem; color: #333; font-weight: 500; }
-        .log-money { font-size: 1.1rem; font-weight: bold; color: #2c3e50; }
-        .edit-hint { font-size: 0.7rem; color: #2196f3; margin-left: 5px; border:1px solid #2196f3; padding:1px 4px; border-radius:4px;}
-
-        /* --- Modal 與 鍵盤 --- */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6);
-            z-index: 1000;
-            justify-content: center;
-            align-items: flex-end;
-            backdrop-filter: blur(2px);
-        }
-        
-        .modal-content {
-            background-color: white;
-            width: 100%;
-            max-width: 600px;
-            border-radius: 20px 20px 0 0;
-            padding: 20px;
-            box-sizing: border-box;
-            animation: slideUp 0.25s ease-out;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-        .modal-header {
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 1.1rem; font-weight: bold; color: #444; margin-bottom: 5px;
-        }
-        .btn-close { background: none; border: none; font-size: 1.5rem; color: #999; padding: 0 10px; }
-
-        .display-window {
-            background-color: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 12px;
-            padding: 12px;
-            text-align: right;
-            font-size: 2.2rem;
-            font-weight: bold;
-            color: #333;
-            font-family: monospace;
-        }
-
-        .numpad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-
-        .num-btn {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 1.4rem;
-            font-weight: 500;
-            color: #333;
-            box-shadow: 0 2px 0 #eee;
-        }
-        .num-btn:active { background-color: #ddd; transform: translateY(2px); box-shadow: none; }
-        
-        .btn-backspace { background-color: #ffebee; color: #c62828; border-color: #ffcdd2; }
-        
-        /* 確認與刪除按鈕區 */
-        .action-row {
-            grid-column: span 3;
-            display: flex;
-            gap: 10px;
-        }
-        .btn-confirm { 
-            flex: 2;
-            background-color: #2196f3; color: white; border: none;
-            font-size: 1.1rem; padding: 12px; border-radius: 8px; font-weight: bold;
-            box-shadow: 0 2px 0 #1565c0;
-        }
-        .btn-delete {
-            flex: 1;
-            background-color: #ff5252; color: white; border: none;
-            font-size: 1.1rem; padding: 12px; border-radius: 8px; font-weight: bold;
-            box-shadow: 0 2px 0 #d32f2f;
-            display: none; /* 預設隱藏，只有編輯時顯示 */
-        }
-        .btn-confirm:active, .btn-delete:active { transform: translateY(2px); box-shadow: none; opacity: 0.9;}
-
-        .note-input {
-            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;
-            font-size: 1rem; box-sizing: border-box; text-align: center;
-        }
-
-        .footer-actions { margin-top: 30px; display: flex; justify-content: center; gap: 15px; }
-        .btn-small { padding: 8px 15px; border-radius: 20px; border: 1px solid #ccc; background: white; font-size: 0.85rem; color: #666; }
-    </style>
+    <title>隨身記帳 V5 (分離版)</title>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="container">
-    <div class="total-section">
-        <div class="total-label">今日花費總計</div>
-        <div class="total-amount">$<span id="totalMoney">0</span></div>
+    
+    <div id="tab-home" class="tab-content active">
+        <div class="total-section">
+            <div class="total-label">今日花費</div>
+            <div class="total-amount">$<span id="todayTotal">0</span></div>
+        </div>
+
+        <div class="category-grid">
+            <button class="cat-btn" onclick="openModal('早餐')">早餐</button>
+            <button class="cat-btn" onclick="openModal('午餐')">午餐</button>
+            <button class="cat-btn" onclick="openModal('晚餐')">晚餐</button>
+            <button class="cat-btn" onclick="openModal('咖啡')">咖啡</button>
+            <button class="cat-btn" onclick="openModal('飲料')">飲料</button>
+            <button class="cat-btn" onclick="openModal('點心')">點心</button>
+            <button class="cat-btn special" onclick="openModal('交通')">交通</button>
+            <button class="cat-btn special" onclick="openModal('雜支')">雜支</button>
+            <button class="cat-btn special" onclick="openModal('其他')">其他</button>
+        </div>
+
+        <div class="section-title">今日明細</div>
+        <ul class="log-list" id="homeList">
+            </ul>
     </div>
 
-    <div class="category-grid">
-        <button class="cat-btn" onclick="openModal('早餐')">早餐</button>
-        <button class="cat-btn" onclick="openModal('午餐')">午餐</button>
-        <button class="cat-btn" onclick="openModal('晚餐')">晚餐</button>
-        
-        <button class="cat-btn" onclick="openModal('咖啡')">咖啡</button>
-        <button class="cat-btn" onclick="openModal('飲料')">飲料</button>
-        <button class="cat-btn" onclick="openModal('點心')">點心</button>
-        
-        <button class="cat-btn special" onclick="openModal('交通')">交通</button>
-        <button class="cat-btn special" onclick="openModal('雜支')">雜支</button>
-        <button class="cat-btn special" onclick="openModal('其他')">其他</button>
+    <div id="tab-history" class="tab-content">
+        <div class="section-title" style="margin-top:0;">歷史紀錄 (依日期分組)</div>
+        <div class="history-actions">
+             <button onclick="exportCSV()" class="btn-tool">📥 下載 CSV</button>
+             <button onclick="clearAllData()" class="btn-tool btn-tool-danger">🗑️ 清空</button>
+        </div>
+        <div id="historyListContainer">
+            </div>
     </div>
 
-    <div class="log-header">
-        <span>消費紀錄 (點擊可修改/刪除)</span>
-    </div>
-    <ul class="log-list" id="logList">
-        </ul>
-
-    <div class="footer-actions">
-        <button class="btn-small" onclick="exportCSV()">📥 下載 CSV</button>
-        <button class="btn-small" style="color:red; border-color: pink;" onclick="clearAllData()">🗑️ 清空全部</button>
-    </div>
 </div>
+
+<nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('home')" id="nav-home">
+        <span class="nav-icon">✎</span>
+        <span>記帳</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('history')" id="nav-history">
+        <span class="nav-icon">🕒</span>
+        <span>歷史</span>
+    </button>
+</nav>
 
 <div id="inputModal" class="modal-overlay">
     <div class="modal-content">
@@ -240,27 +63,21 @@
             <span id="modalTitle">記錄金額</span>
             <button class="btn-close" onclick="closeModal()">×</button>
         </div>
-
         <div class="display-window" id="displayNum">0</div>
         <input type="text" id="noteInput" class="note-input" placeholder="備註 (選填)">
-
         <div class="numpad">
             <button class="num-btn" onclick="pressNum('1')">1</button>
             <button class="num-btn" onclick="pressNum('2')">2</button>
             <button class="num-btn" onclick="pressNum('3')">3</button>
-            
             <button class="num-btn" onclick="pressNum('4')">4</button>
             <button class="num-btn" onclick="pressNum('5')">5</button>
             <button class="num-btn" onclick="pressNum('6')">6</button>
-            
             <button class="num-btn" onclick="pressNum('7')">7</button>
             <button class="num-btn" onclick="pressNum('8')">8</button>
             <button class="num-btn" onclick="pressNum('9')">9</button>
-            
             <button class="num-btn btn-backspace" onclick="pressNum('DEL')">⌫</button>
             <button class="num-btn" onclick="pressNum('0')">0</button>
             <button class="num-btn" onclick="pressNum('00')">00</button>
-
             <div class="action-row">
                 <button id="btnDelete" class="btn-delete" onclick="deleteCurrentRecord()">刪除</button>
                 <button id="btnConfirm" class="btn-confirm" onclick="confirmRecord()">確認</button>
@@ -269,183 +86,7 @@
     </div>
 </div>
 
-<script>
-    let records = [];
-    let currentAmountStr = '0'; 
-    let editingId = null; // 用來追蹤目前是在「新增」還是「修改」
-    let currentCategory = ''; // 新增時暫存分類
-    
-    // DOM 元素
-    const totalEl = document.getElementById('totalMoney');
-    const listEl = document.getElementById('logList');
-    const modal = document.getElementById('inputModal');
-    const displayEl = document.getElementById('displayNum');
-    const noteEl = document.getElementById('noteInput');
-    const modalTitle = document.getElementById('modalTitle');
-    const btnConfirm = document.getElementById('btnConfirm');
-    const btnDelete = document.getElementById('btnDelete');
-
-    window.onload = function() {
-        const savedData = localStorage.getItem('myMoneyRecordsV4');
-        if (savedData) {
-            records = JSON.parse(savedData);
-            render();
-        }
-    };
-
-    // --- Modal 控制 (新增模式) ---
-    function openModal(category) {
-        editingId = null; // 設定為新增模式
-        currentCategory = category;
-        currentAmountStr = '0';
-        noteEl.value = '';
-        
-        modalTitle.textContent = `記一筆：${category}`;
-        btnConfirm.textContent = "確認記錄";
-        btnDelete.style.display = 'none'; // 隱藏刪除鈕
-        
-        updateDisplay();
-        modal.style.display = 'flex';
-    }
-
-    // --- Modal 控制 (編輯模式) ---
-    function openEditModal(id) {
-        const record = records.find(r => r.id === id);
-        if (!record) return;
-
-        editingId = id; // 設定為編輯模式
-        currentCategory = record.pureCategory; // 原始分類
-        currentAmountStr = record.amount.toString();
-        
-        // 解析備註：從 "午餐 (牛肉麵)" 取出 "牛肉麵"
-        // 簡單處理：如果有括號，取出括號內容，否則留空
-        const match = record.category.match(/\((.*)\)/);
-        noteEl.value = match ? match[1] : '';
-
-        modalTitle.textContent = `修改：${record.pureCategory}`;
-        btnConfirm.textContent = "保存修改";
-        btnDelete.style.display = 'block'; // 顯示刪除鈕
-        
-        updateDisplay();
-        modal.style.display = 'flex';
-    }
-
-    function closeModal() {
-        modal.style.display = 'none';
-    }
-
-    // --- 鍵盤邏輯 ---
-    function pressNum(key) {
-        if (key === 'DEL') {
-            currentAmountStr = currentAmountStr.length > 1 ? currentAmountStr.slice(0, -1) : '0';
-        } else if (key === '00') {
-             if (currentAmountStr !== '0' && currentAmountStr.length < 8) currentAmountStr += '00';
-        } else {
-            if (currentAmountStr.length >= 9) return;
-            currentAmountStr = currentAmountStr === '0' ? key : currentAmountStr + key;
-        }
-        updateDisplay();
-    }
-
-    function updateDisplay() {
-        displayEl.textContent = parseInt(currentAmountStr).toLocaleString();
-    }
-
-    // --- 確認 (新增或修改) ---
-    function confirmRecord() {
-        const amount = parseInt(currentAmountStr);
-        if (amount === 0) return alert("金額不能為 0");
-
-        const note = noteEl.value.trim();
-        const displayCategory = note ? `${currentCategory} (${note})` : currentCategory;
-        const now = new Date();
-
-        if (editingId) {
-            // 修改現有紀錄
-            const index = records.findIndex(r => r.id === editingId);
-            if (index !== -1) {
-                records[index].amount = amount;
-                records[index].category = displayCategory;
-                // 注意：修改不更新時間戳，保留原始時間
-            }
-        } else {
-            // 新增紀錄
-            const newRecord = {
-                id: Date.now(),
-                timestamp: now.toLocaleString(),
-                timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
-                category: displayCategory,
-                pureCategory: currentCategory, // 保留純分類方便下次編輯
-                amount: amount
-            };
-            records.unshift(newRecord);
-        }
-
-        saveAndRender();
-        closeModal();
-    }
-
-    // --- 刪除單筆 ---
-    function deleteCurrentRecord() {
-        if (!editingId) return;
-        if (confirm("確定要刪除這筆紀錄嗎？")) {
-            records = records.filter(r => r.id !== editingId);
-            saveAndRender();
-            closeModal();
-        }
-    }
-
-    // --- 系統功能 ---
-    function saveAndRender() {
-        localStorage.setItem('myMoneyRecordsV4', JSON.stringify(records));
-        render();
-    }
-
-    function render() {
-        const total = records.reduce((sum, r) => sum + r.amount, 0);
-        totalEl.textContent = total.toLocaleString();
-
-        listEl.innerHTML = '';
-        records.forEach(r => {
-            const li = document.createElement('li');
-            li.className = 'log-item';
-            // 點擊觸發編輯
-            li.onclick = () => openEditModal(r.id);
-            
-            li.innerHTML = `
-                <div class="log-info">
-                    <span class="log-time">${r.timeDisplay} <span class="edit-hint">編輯</span></span>
-                    <span class="log-cat">${r.category}</span>
-                </div>
-                <span class="log-money">$${r.amount}</span>
-            `;
-            listEl.appendChild(li);
-        });
-    }
-
-    function clearAllData() {
-        if(confirm("警告：這將清空所有資料！")) {
-            records = [];
-            saveAndRender();
-        }
-    }
-
-    function exportCSV() {
-        if(records.length === 0) return alert("無資料");
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF時間,項目,金額\n";
-        records.forEach(row => {
-            csvContent += `${row.timestamp},${row.category},${row.amount}\n`;
-        });
-        const link = document.createElement("a");
-        link.href = encodeURI(csvContent);
-        link.download = `money_log_${new Date().toISOString().slice(0,10)}.csv`;
-        document.body.appendChild(link);
-        link.click();
-    }
-
-    // 點擊背景關閉
-    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-</script>
+<script src="script.js"></script>
 
 </body>
 </html>
