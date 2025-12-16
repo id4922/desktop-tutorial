@@ -67,7 +67,6 @@ body {
 .num-btn:active { background: #eee; transform: translateY(2px); box-shadow: none;}
 .btn-confirm { grid-column: span 2; background: #e91e63; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #c2185b; }
 .btn-delete { background: #ff5252; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #d32f2f; }
-.btn-full-danger { width: 100%; background: #ffebee; color: #d32f2f; padding: 15px; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; font-size: 1rem;}
 
 /* --- 關鍵修正區：設定彈窗的色票網格 (V7.9) --- */
 /* --- style.css --- */
@@ -76,35 +75,26 @@ body {
 
 /* --- 修正版：防止圓圈被切到 --- */
 .settings-grid { 
+    /* 保持您原本的設定 */
     display: grid; 
-    /* 1. 維持一列 5 個 */
     grid-template-columns: repeat(5, 1fr); 
-    
-    /* 2. 間距縮小到 8px，讓圓圈自然變小 */
-    gap: 8px; 
-    
+    gap: 10px; 
     margin: 15px 0; 
     max-height: 250px; 
-    
-    /* 3. 鎖定卷軸方向 */
     overflow-y: auto; 
     overflow-x: hidden;
-    
-    /* 4. 關鍵修改：右邊內距加到 24px！ */
-    /* 上下10px, 右24px(給卷軸), 左10px */
     padding: 10px 35px 10px 10px; 
-    
     width: 100%; 
     box-sizing: border-box;
 }
 
-/* 修正卷軸樣式，讓它不要太肥佔空間 (選用) */
+/* 讓手機的卷軸細一點，比較好看 (選用) */
 .settings-grid::-webkit-scrollbar {
-    width: 5px; /* 改細 */
+    width: 6px;
 }
 .settings-grid::-webkit-scrollbar-thumb {
     background-color: #ccc;
-    border-radius: 10px;
+    border-radius: 4px;
 }
 .settings-grid::-webkit-scrollbar-track {
     background: transparent;
@@ -132,6 +122,60 @@ body {
     z-index: 1; /* 確保浮在最上層 */
 }
 
+.btn-round-delete {
+    background: #ffebee;
+    color: #ff5252;
+    border: 1px solid #ffcdd2;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+/* 新增：輸入區塊的容器，讓刪除鈕在左，輸入框在右 */
+.input-group-row {
+    display: flex;
+    align-items: center; /* 垂直置中 */
+    gap: 15px; /* 按鈕跟輸入框的距離 */
+    margin-bottom: 10px;
+}
+
+/* 新增：正方形圓角刪除按鈕 */
+.btn-square-delete {
+    width: 48px;
+    height: 48px;
+    background: #ffebee;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+    border-radius: 12px; /* 圓角矩形 */
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s;
+    flex-shrink: 0; /* 防止被擠壓 */
+}
+
+.btn-square-delete:active {
+    background: #ef9a9a;
+    color: white;
+    transform: scale(0.95);
+}
+.btn-round-delete:active {
+    transform: scale(0.9);
+    background: #ffcdd2;
+}
+.input-wrapper {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
 /* ... (下面保持不變) ... */
 
 .tab-content { display: none; }
