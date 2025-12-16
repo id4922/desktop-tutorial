@@ -1,30 +1,47 @@
-// --- 資料結構 ---
+// --- script.js ---
+
 let records = [];
 let categories = []; 
-let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; // 預設漸層綠
+let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
 
-// --- 顏色庫 (粉色系與漸層) ---
+// 擴充色票 (25色)
 const BTN_COLORS = [
     { val: "white", label: "簡約白" },
-    { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
-    { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
+    { val: "#f5f5f5", label: "淺灰" },
+    { val: "#fff9c4", label: "淡黃" },
+    { val: "#e0f2f1", label: "薄荷" },
+    { val: "#e3f2fd", label: "淡藍" },
     { val: "linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)", label: "珊瑚紅" },
-    { val: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", label: "奶油橘" },
-    { val: "linear-gradient(135deg, #e1bee7 0%, #ce93d8 100%)", label: "粉紫色" },
-    { val: "linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%)", label: "天空藍" },
-    { val: "linear-gradient(135deg, #e0f2f1 0%, #80cbc4 100%)", label: "薄荷綠" }
+    { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
+    { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
+    { val: "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", label: "夢幻紫" },
+    { val: "linear-gradient(135deg, #ff80ab 0%, #ff4081 100%)", label: "亮桃紅" },
+    { val: "linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%)", label: "暖橘" },
+    { val: "linear-gradient(135deg, #ffecb3 0%, #ffd54f 100%)", label: "金黃" },
+    { val: "linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%)", label: "奶茶色" },
+    { val: "linear-gradient(135deg, #ffab91 0%, #ff7043 100%)", label: "赤陶" },
+    { val: "#ff5252", label: "正紅" }, 
+    { val: "linear-gradient(135deg, #b2dfdb 0%, #4db6ac 100%)", label: "青綠" },
+    { val: "linear-gradient(135deg, #80cbc4 0%, #009688 100%)", label: "湖水綠" },
+    { val: "linear-gradient(135deg, #90caf9 0%, #42a5f5 100%)", label: "天空藍" },
+    { val: "linear-gradient(135deg, #9fa8da 0%, #5c6bc0 100%)", label: "靛青" },
+    { val: "#607d8b", label: "藍灰" },
+    { val: "#333333", label: "酷黑" }, 
+    { val: "linear-gradient(135deg, #b39ddb 0%, #7e57c2 100%)", label: "深紫" },
+    { val: "linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%)", label: "草綠" },
+    { val: "linear-gradient(to right, #ffafbd, #ffc3a0)", label: "夕陽" },
+    { val: "linear-gradient(120deg, #f093fb 0%, #f5576c 100%)", label: "熱情" }
 ];
 
 const BG_STYLES = [
-    "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)", // 漸層綠
-    "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", // 漸層粉
-    "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", // 漸層橘
-    "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)", // 漸層藍
-    "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", // 漸層紫
-    "#f0f2f5" // 簡約灰
+    "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)", 
+    "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", 
+    "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", 
+    "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)", 
+    "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", 
+    "#f0f2f5" 
 ];
 
-// --- 狀態變數 ---
 let currentAmountStr = '0'; 
 let editingRecordId = null; 
 let currentCategoryName = ''; 
@@ -33,16 +50,17 @@ let editingCatIndex = null;
 
 // --- 初始化 ---
 window.onload = function() {
-    // 1. 讀取紀錄
+    initElements(); 
+
     const savedData = localStorage.getItem('myMoneyRecordsV4'); 
     if (savedData) records = JSON.parse(savedData);
 
-    // 2. 讀取背景
     const savedBg = localStorage.getItem('myBgStyle');
-    if (savedBg) bgStyle = savedBg;
-    document.body.style.background = bgStyle;
+    if (savedBg) {
+        bgStyle = savedBg;
+        document.body.style.background = bgStyle;
+    }
 
-    // 3. 讀取按鈕 (舊版轉新版相容)
     const savedCats = localStorage.getItem('myCategoriesV2'); 
     if (savedCats) {
         categories = JSON.parse(savedCats);
@@ -57,12 +75,12 @@ window.onload = function() {
         }
     }
 
-    initElements();
     renderCategories();
     renderHome();
 };
 
 let modal, displayEl, noteInput, btnConfirmRecord, btnDeleteRecord;
+let settingsModal, settingNameInput, colorGrid, bgModal;
 
 function initElements() {
     modal = document.getElementById('inputModal');
@@ -70,21 +88,38 @@ function initElements() {
     noteInput = document.getElementById('noteInput');
     btnConfirmRecord = document.getElementById('btnConfirmRecord');
     btnDeleteRecord = document.getElementById('btnDeleteRecord');
+    
+    settingsModal = document.getElementById('settingsModal');
+    settingNameInput = document.getElementById('settingNameInput');
+    colorGrid = document.getElementById('colorGrid');
+    bgModal = document.getElementById('bgModal');
 }
 
-// --- 渲染按鈕區 ---
+// --- 按鈕渲染 ---
 const categoryGrid = document.getElementById('categoryGrid');
 let sortableInstance = null;
 
 function renderCategories() {
     categoryGrid.innerHTML = '';
-
     categories.forEach((cat, index) => {
         const btn = document.createElement('button');
         btn.className = 'cat-btn';
         btn.textContent = cat.name;
         btn.style.background = cat.color;
         
+        // 文字顏色對比處理
+        if (cat.color.includes("#333") || cat.color.includes("linear")) {
+            if (cat.color.includes("linear")) {
+                 btn.style.color = "#444"; 
+                 btn.style.fontWeight = "bold";
+                 btn.style.textShadow = "0 1px 0 rgba(255,255,255,0.4)";
+            }
+            if (cat.color === "#333333") {
+                btn.style.color = "white";
+                btn.style.textShadow = "none";
+            }
+        }
+
         btn.onclick = () => handleCategoryClick(index);
         categoryGrid.appendChild(btn);
     });
@@ -96,24 +131,18 @@ function renderCategories() {
         addBtn.onclick = addNewCategory;
         categoryGrid.appendChild(addBtn);
     }
-
     setupSortable();
 }
 
 function handleCategoryClick(index) {
-    if (isEditMode) {
-        openSettingsModal(index);
-    } else {
-        openInputModal(categories[index].name);
-    }
+    if (isEditMode) openSettingsModal(index);
+    else openInputModal(categories[index].name);
 }
 
 function setupSortable() {
     if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
     sortableInstance = new Sortable(categoryGrid, {
-        animation: 150,
-        disabled: !isEditMode,
-        filter: '.btn-add-cat',
+        animation: 150, disabled: !isEditMode, filter: '.btn-add-cat',
         onEnd: function (evt) {
             const item = categories.splice(evt.oldIndex, 1)[0];
             categories.splice(evt.newIndex, 0, item);
@@ -122,10 +151,7 @@ function setupSortable() {
     });
 }
 
-// --- 按鈕設定邏輯 (新功能) ---
-const settingsModal = document.getElementById('settingsModal');
-const settingNameInput = document.getElementById('settingNameInput');
-const colorGrid = document.getElementById('colorGrid');
+// --- 設定邏輯 ---
 let tempColor = "white";
 
 function openSettingsModal(index) {
@@ -140,7 +166,6 @@ function openSettingsModal(index) {
         swatch.className = 'color-swatch';
         swatch.style.background = c.val;
         if (c.val === tempColor) swatch.classList.add('selected');
-        
         swatch.onclick = () => {
             tempColor = c.val;
             document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
@@ -148,14 +173,12 @@ function openSettingsModal(index) {
         };
         colorGrid.appendChild(swatch);
     });
-
     settingsModal.style.display = 'flex';
 }
 
 function saveCategorySettings() {
     const newName = settingNameInput.value.trim();
     if (!newName) return alert("請輸入名稱");
-    
     categories[editingCatIndex].name = newName;
     categories[editingCatIndex].color = tempColor;
     saveCategories();
@@ -163,7 +186,7 @@ function saveCategorySettings() {
 }
 
 function deleteCategory() {
-    if(confirm(`確定刪除「${categories[editingCatIndex].name}」嗎？`)) {
+    if(confirm(`確定要刪除「${categories[editingCatIndex].name}」嗎？`)) {
         categories.splice(editingCatIndex, 1);
         saveCategories();
         closeSettingsModal();
@@ -177,7 +200,6 @@ function addNewCategory() {
 }
 
 function closeSettingsModal() { settingsModal.style.display = 'none'; }
-
 function saveCategories(render = true) {
     localStorage.setItem('myCategoriesV2', JSON.stringify(categories));
     if(render) renderCategories();
@@ -196,7 +218,7 @@ function toggleEditMode() {
     renderCategories();
 }
 
-// --- 背景設定邏輯 ---
+// --- 背景設定 ---
 function openBgSettings() {
     const bgGrid = document.getElementById('bgGrid');
     bgGrid.innerHTML = '';
@@ -216,41 +238,24 @@ function openBgSettings() {
 }
 function closeBgModal() { document.getElementById('bgModal').style.display = 'none'; }
 
-
-// --- 記帳輸入與歷史顯示 ---
+// --- 記帳輸入邏輯 ---
 function openInputModal(catName) {
-    editingRecordId = null;
-    currentCategoryName = catName;
-    currentAmountStr = '0';
-    noteInput.value = '';
+    editingRecordId = null; currentCategoryName = catName; currentAmountStr = '0'; noteInput.value = '';
     document.getElementById('modalTitle').textContent = catName;
-    btnConfirmRecord.textContent = "確認";
-    btnDeleteRecord.style.display = 'none';
-    btnConfirmRecord.style.gridColumn = "span 2"; 
-    updateDisplay();
-    modal.style.display = 'flex';
+    btnConfirmRecord.textContent = "確認"; btnDeleteRecord.style.display = 'none'; btnConfirmRecord.style.gridColumn = "span 2"; 
+    updateDisplay(); modal.style.display = 'flex';
 }
 
 function openEditRecord(id) {
-    const r = records.find(x => x.id === id);
-    if (!r) return;
-    editingRecordId = id;
-    currentCategoryName = r.pureCategory || r.category.split(' (')[0];
-    currentAmountStr = r.amount.toString();
-    const match = r.category.match(/\((.*)\)/);
-    noteInput.value = match ? match[1] : '';
+    const r = records.find(x => x.id === id); if (!r) return;
+    editingRecordId = id; currentCategoryName = r.pureCategory || r.category.split(' (')[0]; currentAmountStr = r.amount.toString();
+    const match = r.category.match(/\((.*)\)/); noteInput.value = match ? match[1] : '';
     document.getElementById('modalTitle').textContent = "修改紀錄";
-    
-    btnConfirmRecord.textContent = "儲存";
-    btnDeleteRecord.style.display = 'block'; 
-    btnConfirmRecord.style.gridColumn = "span 1"; 
-    
-    updateDisplay();
-    modal.style.display = 'flex';
+    btnConfirmRecord.textContent = "儲存"; btnDeleteRecord.style.display = 'block'; btnConfirmRecord.style.gridColumn = "span 1"; 
+    updateDisplay(); modal.style.display = 'flex';
 }
 
 function closeModal() { modal.style.display = 'none'; }
-
 function pressNum(k) {
     if(k==='DEL') currentAmountStr = currentAmountStr.length>1 ? currentAmountStr.slice(0,-1) : '0';
     else if(k==='00') { if(currentAmountStr!=='0' && currentAmountStr.length<8) currentAmountStr+='00'; }
@@ -270,25 +275,13 @@ function confirmRecord() {
         if (idx !== -1) { records[idx].amount = amount; records[idx].category = finalCat; }
     } else {
         const now = new Date();
-        records.unshift({
-            id: Date.now(),
-            timestamp: now.toLocaleString(),
-            timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
-            category: finalCat,
-            pureCategory: currentCategoryName,
-            amount: amount
-        });
+        records.unshift({ id: Date.now(), timestamp: now.toLocaleString(), timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`, category: finalCat, pureCategory: currentCategoryName, amount: amount });
     }
-    saveRecords();
-    closeModal();
+    saveRecords(); closeModal();
 }
 
 function deleteCurrentRecord() {
-    if(confirm("刪除此筆紀錄？")) {
-        records = records.filter(x => x.id !== editingRecordId);
-        saveRecords();
-        closeModal();
-    }
+    if(confirm("刪除此筆紀錄？")) { records = records.filter(x => x.id !== editingRecordId); saveRecords(); closeModal(); }
 }
 
 // --- 系統功能 ---
@@ -314,11 +307,8 @@ function renderHistory() {
     const container = document.getElementById('historyListContainer');
     container.innerHTML = '';
     if (records.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;margin-top:20px;">無資料</div>'; return; }
-    
     records.sort((a,b) => b.id - a.id);
-    let lastDate = '';
-    let ul = null;
-    
+    let lastDate = ''; let ul = null;
     records.forEach(r => {
         const dStr = getFormattedDate(r.id);
         if (dStr !== lastDate) {
@@ -327,10 +317,7 @@ function renderHistory() {
             header.className = 'history-date-header';
             header.innerHTML = `<span>📅 ${dStr}</span><span class="daily-total">$${daySum.toLocaleString()}</span>`;
             container.appendChild(header);
-            ul = document.createElement('ul');
-            ul.className = 'log-list';
-            ul.style.background = 'white';
-            container.appendChild(ul);
+            ul = document.createElement('ul'); ul.className = 'log-list'; ul.style.background = 'white'; container.appendChild(ul);
             lastDate = dStr;
         }
         if (ul) ul.appendChild(createLogItem(r));
@@ -338,23 +325,14 @@ function renderHistory() {
 }
 
 function createLogItem(r) {
-    const li = document.createElement('li');
-    li.className = 'log-item';
-    li.onclick = () => openEditRecord(r.id);
-    li.innerHTML = `
-        <div class="log-info">
-            <span class="log-time">${r.timeDisplay}</span>
-            <span class="log-cat">${r.category}</span>
-        </div>
-        <span class="log-money">$${r.amount}</span>
-    `;
+    const li = document.createElement('li'); li.className = 'log-item'; li.onclick = () => openEditRecord(r.id);
+    li.innerHTML = `<div class="log-info"><span class="log-time">${r.timeDisplay}</span><span class="log-cat">${r.category}</span></div><span class="log-money">$${r.amount}</span>`;
     return li;
 }
 
 function saveRecords() {
     localStorage.setItem('myMoneyRecordsV4', JSON.stringify(records));
-    if(document.getElementById('tab-home').style.display !== 'none') renderHome();
-    else renderHistory();
+    if(document.getElementById('tab-home').style.display !== 'none') renderHome(); else renderHistory();
 }
 
 function switchTab(t) {
@@ -375,6 +353,4 @@ function exportCSV() {
 
 function clearAllData() { if(confirm("清空所有資料？")) { records=[]; saveRecords(); } }
 
-window.onclick = function(e) {
-    if(e.target.classList.contains('modal-overlay')) e.target.style.display = 'none';
-}
+window.onclick = function(e) { if(e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; }
