@@ -41,16 +41,26 @@
     </div>
 
 	<div id="tab-history" class="tab-content">
-		<div class="toolbar">
+		
+		<div class="toolbar-history">
 			<div class="section-title">歷史紀錄</div>
-			<div>
-				<!-- <button onclick="generateFakeData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#1976D2;">🧪 測試資料</button> -->
-				 
-				<button onclick="backupData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#2E7D32;">📤 備份</button>
-				<button onclick="triggerRestore()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#E65100;">📥 還原</button>
+			
+			<div class="action-buttons-row">
+				<button onclick="backupData()" class="btn-chip" style="color:#2E7D32; border-color:#C8E6C9;">
+					📤 備份
+				</button>
 				
-				<button onclick="exportCSV()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px;">📥 CSV</button>
-				<button onclick="clearAllData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:red;">🗑️ 清空</button>
+				<button onclick="triggerRestore()" class="btn-chip" style="color:#E65100; border-color:#FFE0B2;">
+					📥 還原
+				</button>
+				
+				<button onclick="exportCSV()" class="btn-chip" style="color:#444;">
+					📥 CSV
+				</button>
+				
+				<button onclick="clearAllData()" class="btn-chip" style="color:#D32F2F; border-color:#FFCDD2;">
+					🗑️ 清空
+				</button>
 			</div>
 		</div>
 		
@@ -106,8 +116,19 @@
             <span id="modalTitle" style="font-weight:bold; font-size:1.2rem; color:#444;">記錄</span>
             <span onclick="closeModal()" style="font-size:1.5rem; color:#999; cursor:pointer;">×</span>
         </div>
+
         <div class="display-window" id="displayNum">0</div>
-        <input type="text" id="noteInput" class="note-input" placeholder="備註 (選填)">
+
+		<div class="input-row">
+			<input type="date" id="recordDateInput" class="hidden-date-input" onchange="updateDateDisplay()">
+			
+			<button class="btn-calendar-trigger" id="btnDateTrigger" onclick="openDatePicker()" title="更改日期">📅</button>
+			
+			<span id="dateDisplayText" class="date-display-text" onclick="openDatePicker()">2025-01-01</span>
+			
+			<input type="text" id="noteInput" class="note-input-flex" placeholder="備註">
+		</div>
+
         <div class="numpad">
             <button class="num-btn" onclick="pressNum('1')">1</button>
             <button class="num-btn" onclick="pressNum('2')">2</button>
@@ -120,6 +141,7 @@
             <button class="num-btn" onclick="pressNum('9')">9</button>
             <button class="num-btn btn-backspace" onclick="pressNum('DEL')">⌫</button>
             <button class="num-btn" onclick="pressNum('0')">0</button>
+            
             <button class="num-btn btn-delete" id="btnDeleteRecord" onclick="deleteCurrentRecord()" style="display:none;">刪除</button>
             <button class="num-btn btn-confirm" id="btnConfirmRecord" onclick="confirmRecord()">確認</button>
         </div>
