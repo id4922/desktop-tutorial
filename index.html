@@ -89,15 +89,19 @@
             <span onclick="closeSettingsModal()" style="font-size:1.5rem; color:#999; cursor:pointer;">×</span>
         </div>
         
-        <label style="font-size:0.9rem; color:#666;">名稱</label>
-        <input type="text" id="settingNameInput" class="note-input" style="text-align:left; margin-top:5px;">
-
-        <label style="font-size:0.9rem; color:#666;">選擇顏色 (20+色)</label>
-        <div class="settings-grid" id="colorGrid">
+        <div class="input-group-row">
+            <button class="btn-square-delete" onclick="deleteCategory()" title="刪除此按鈕">🗑️</button>
+            
+            <div class="input-wrapper">
+                <label style="font-size:0.9rem; color:#666; margin-bottom:4px;">名稱</label>
+                <input type="text" id="settingNameInput" class="note-input" style="text-align:left; margin:0; width:100%;">
             </div>
+        </div>
 
-        <button class="btn-full-danger" onclick="deleteCategory()">🗑️ 刪除此按鈕</button>
-        <button class="num-btn btn-confirm" style="width:100%; margin-top:10px;" onclick="saveCategorySettings()">儲存設定</button>
+        <label style="font-size:0.9rem; color:#666;">選擇顏色</label>
+        <div class="settings-grid" id="colorGrid"></div>
+
+        <button class="num-btn btn-confirm" style="width:100%; margin-top:15px;" onclick="saveCategorySettings()">儲存設定</button>
     </div>
 </div>
 
