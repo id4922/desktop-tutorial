@@ -1,29 +1,23 @@
-// --- script.js ---
+// --- script.js (V7.7 修復版) ---
+
 let records = [];
 let categories = []; 
 let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
 
-// --- 精選 16 色 (粉色系為主，按鈕與背景共用) ---
+// 16色 色票庫
 const THEME_COLORS = [
-    // 1. 基礎淺色
     { val: "white", label: "簡約白" },
     { val: "#fff9c4", label: "奶油黃" },
     { val: "#e1bee7", label: "淡紫" },
     { val: "#b2dfdb", label: "薄荷" },
-
-    // 2. 主打粉色系
     { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
     { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
     { val: "linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)", label: "珊瑚紅" },
     { val: "linear-gradient(135deg, #ff80ab 0%, #ff4081 100%)", label: "亮桃紅" },
-
-    // 3. 暖色與對比
     { val: "linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%)", label: "暖橘" },
     { val: "linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%)", label: "可可" },
     { val: "#ff5252", label: "警示紅" },
     { val: "#333333", label: "酷黑" },
-
-    // 4. 冷色系
     { val: "linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%)", label: "天空藍" },
     { val: "linear-gradient(135deg, #9fa8da 0%, #5c6bc0 100%)", label: "靛青" },
     { val: "linear-gradient(135deg, #80cbc4 0%, #009688 100%)", label: "湖水綠" },
@@ -83,7 +77,7 @@ function initElements() {
     bgModal = document.getElementById('bgModal');
 }
 
-// --- 渲染按鈕區 ---
+// --- 渲染與拖曳設定 ---
 const categoryGrid = document.getElementById('categoryGrid');
 let sortableInstance = null;
 
@@ -95,7 +89,6 @@ function renderCategories() {
         btn.textContent = cat.name;
         btn.style.background = cat.color;
         
-        // 文字顏色對比
         if (cat.color.includes("#333") || cat.color.includes("linear") || cat.color === "#ff5252") {
             if (cat.color.includes("linear") || cat.color === "#ff5252") {
                  btn.style.color = "#444"; 
@@ -107,6 +100,7 @@ function renderCategories() {
             }
         }
 
+        // 綁定點擊事件
         btn.onclick = () => handleCategoryClick(index);
         categoryGrid.appendChild(btn);
     });
@@ -128,20 +122,31 @@ function handleCategoryClick(index) {
 
 function setupSortable() {
     if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
+    
+    // 只有編輯模式才啟用拖曳
     sortableInstance = new Sortable(categoryGrid, {
-        animation: 150, disabled: !isEditMode, filter: '.btn-add-cat',
+        animation: 150, 
+        disabled: !isEditMode, 
+        filter: '.btn-add-cat',
+        
+        // --- 關鍵修復：解決手機點擊無效的問題 ---
+        delay: 200,             // 按住 200ms 後才算拖曳
+        delayOnTouchOnly: true, // 只在手機上啟用延遲 (電腦不影響)
+        touchStartThreshold: 5, // 手指移動超過 5px 才算拖曳
+        // ----------------------------------------
+
         onEnd: function (evt) {
             const item = categories.splice(evt.oldIndex, 1)[0];
             categories.splice(evt.newIndex, 0, item);
-            saveCategories(false);
+            // 這裡必須設為 true (重新渲染)，否則 DOM 順序變了但 onclick 的 index 還是舊的
+            saveCategories(true); 
         }
     });
 }
 
-// --- 設定邏輯 (16色共用) ---
+// --- 設定邏輯 ---
 let tempColor = "white";
 
-// 產生色票的通用函式
 function renderColorGrid(targetGrid, onClickCallback, selectedColor) {
     targetGrid.innerHTML = '';
     THEME_COLORS.forEach(c => {
@@ -150,7 +155,6 @@ function renderColorGrid(targetGrid, onClickCallback, selectedColor) {
         swatch.style.background = c.val;
         if (c.val === selectedColor) swatch.classList.add('selected');
         swatch.onclick = () => {
-            // 清除選取樣式
             Array.from(targetGrid.children).forEach(child => child.classList.remove('selected'));
             swatch.classList.add('selected');
             onClickCallback(c.val);
@@ -165,7 +169,6 @@ function openSettingsModal(index) {
     settingNameInput.value = cat.name;
     tempColor = cat.color || "white";
     
-    // 渲染按鈕色票
     renderColorGrid(colorGrid, (val) => { tempColor = val; }, tempColor);
     settingsModal.style.display = 'flex';
 }
@@ -209,25 +212,24 @@ function toggleEditMode() {
         btn.style.background = "white";
         categoryGrid.classList.remove('edit-mode');
     }
+    // 切換模式時重新渲染，確保 Sortable 設定正確
     renderCategories();
 }
 
 // --- 背景設定 ---
 function openBgSettings() {
     const bgGrid = document.getElementById('bgGrid');
-    // 使用相同的 16 色渲染背景選單
     renderColorGrid(bgGrid, (val) => {
         bgStyle = val;
         document.body.style.background = bgStyle;
         localStorage.setItem('myBgStyle', bgStyle);
         closeBgModal();
     }, bgStyle);
-    
     document.getElementById('bgModal').style.display = 'flex';
 }
 function closeBgModal() { document.getElementById('bgModal').style.display = 'none'; }
 
-// --- 記帳輸入邏輯 ---
+// --- 記帳輸入 ---
 function openInputModal(catName) {
     editingRecordId = null; currentCategoryName = catName; currentAmountStr = '0'; noteInput.value = '';
     document.getElementById('modalTitle').textContent = catName;
@@ -273,7 +275,7 @@ function deleteCurrentRecord() {
     if(confirm("刪除此筆紀錄？")) { records = records.filter(x => x.id !== editingRecordId); saveRecords(); closeModal(); }
 }
 
-// --- 系統功能 ---
+// --- 系統 ---
 function getFormattedDate(ts) {
     const d = new Date(ts);
     return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
