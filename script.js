@@ -6,54 +6,78 @@ let currentCategory = '';
 
 // --- 初始化 ---
 window.onload = function() {
-    // 讀取 V4/V5 的資料 (如果資料庫名稱要改，記得這裡也要改)
     const savedData = localStorage.getItem('myMoneyRecordsV4'); 
     if (savedData) {
         records = JSON.parse(savedData);
     }
-    renderHome(); // 預設渲染首頁
-};
-
-// --- Tab 切換邏輯 ---
-function switchTab(tabName) {
-    // 1. 隱藏所有頁面，顯示目標頁面
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.add('active');
+    initElements();
     
-    // 2. 更新按鈕狀態
-    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(`nav-${tabName}`).classList.add('active');
-
-    // 3. 重新渲染該頁面的數據
-    if (tabName === 'home') {
+    // 根據目前的 Tab 決定渲染哪一頁
+    if (document.getElementById('tab-home').classList.contains('active')) {
         renderHome();
     } else {
         renderHistory();
     }
+};
+
+// 統一抓取 DOM 元素
+let modal, displayEl, noteEl, modalTitle, btnConfirm, btnDelete;
+function initElements() {
+    modal = document.getElementById('inputModal');
+    displayEl = document.getElementById('displayNum');
+    noteEl = document.getElementById('noteInput');
+    modalTitle = document.getElementById('modalTitle');
+    btnConfirm = document.getElementById('btnConfirm');
+    btnDelete = document.getElementById('btnDelete');
+}
+
+// --- 核心工具：統一日期格式 (解決手機相容性問題) ---
+// 輸入：毫秒數 (Timestamp) -> 輸出："2025/12/16"
+function getFormattedDate(timestamp) {
+    const d = new Date(timestamp);
+    const year = d.getFullYear();
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${year}/${month}/${day}`;
+}
+
+// --- Tab 切換邏輯 ---
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`nav-${tabName}`).classList.add('active');
+
+    if (tabName === 'home') renderHome();
+    else renderHistory();
 }
 
 // --- 渲染：首頁 (只顯示今天) ---
 function renderHome() {
-    const todayStr = new Date().toLocaleDateString();
     const homeList = document.getElementById('homeList');
     const todayTotalEl = document.getElementById('todayTotal');
+    
+    // 取得「今天」的標準字串 (例如 "2025/12/16")
+    const todayStr = getFormattedDate(Date.now());
     
     homeList.innerHTML = '';
     let todaySum = 0;
 
-    // 篩選今天的資料
-    const todayRecords = records.filter(r => new Date(r.timestamp).toLocaleDateString() === todayStr);
+    // 比對每一筆紀錄的 ID (時間戳) 是否屬於今天
+    const todayRecords = records.filter(r => {
+        return getFormattedDate(r.id) === todayStr;
+    });
 
     todayRecords.forEach(r => {
         todaySum += r.amount;
-        const li = createLogItem(r);
-        homeList.appendChild(li);
+        homeList.appendChild(createLogItem(r));
     });
 
     todayTotalEl.textContent = todaySum.toLocaleString();
 }
 
-// --- 渲染：歷史頁 (分組顯示) ---
+// --- 渲染：歷史頁 (顯示所有紀錄，包含今天) ---
 function renderHistory() {
     const container = document.getElementById('historyListContainer');
     container.innerHTML = '';
@@ -63,43 +87,51 @@ function renderHistory() {
         return;
     }
 
-    // 資料分組邏輯
-    const groups = {};
+    // 1. 排序：新的在上面
+    records.sort((a, b) => b.id - a.id);
+
+    // 2. 分組邏輯
+    let lastDateStr = '';
+    let currentUl = null;
+
     records.forEach(r => {
-        const date = new Date(r.timestamp).toLocaleDateString();
-        if (!groups[date]) groups[date] = { total: 0, items: [] };
-        groups[date].items.push(r);
-        groups[date].total += r.amount;
-    });
+        // 使用統一格式轉換日期
+        const dateStr = getFormattedDate(r.id);
 
-    // 排序日期 (假設資料大致有序，但安全起見做排序)
-    const sortedDates = Object.keys(groups).sort((a,b) => new Date(b) - new Date(a));
+        // 如果換了一天 (或是第一筆)，就建立標題
+        if (dateStr !== lastDateStr) {
+            
+            // 計算該日總合
+            const dailyTotal = records
+                .filter(item => getFormattedDate(item.id) === dateStr)
+                .reduce((sum, item) => sum + item.amount, 0);
 
-    sortedDates.forEach(date => {
-        const group = groups[date];
-        
-        // 標題列
-        const header = document.createElement('div');
-        header.className = 'history-date-header';
-        header.innerHTML = `
-            <span>📅 ${date}</span>
-            <span class="daily-total">$${group.total.toLocaleString()}</span>
-        `;
-        container.appendChild(header);
+            // 建立日期標題
+            const header = document.createElement('div');
+            header.className = 'history-date-header';
+            header.innerHTML = `
+                <span>📅 ${dateStr}</span>
+                <span class="daily-total">$${dailyTotal.toLocaleString()}</span>
+            `;
+            container.appendChild(header);
 
-        // 內容列
-        const ul = document.createElement('ul');
-        ul.className = 'log-list';
-        ul.style.background = 'white';
-        
-        group.items.forEach(r => {
-            ul.appendChild(createLogItem(r));
-        });
-        container.appendChild(ul);
+            // 建立該日的清單容器
+            currentUl = document.createElement('ul');
+            currentUl.className = 'log-list';
+            currentUl.style.background = 'white';
+            container.appendChild(currentUl);
+
+            lastDateStr = dateStr;
+        }
+
+        // 加入單筆紀錄
+        if (currentUl) {
+            currentUl.appendChild(createLogItem(r));
+        }
     });
 }
 
-// 輔助：建立列表項目
+// 輔助：建立列表項目 UI
 function createLogItem(r) {
     const li = document.createElement('li');
     li.className = 'log-item';
@@ -115,13 +147,6 @@ function createLogItem(r) {
 }
 
 // --- Modal 與 輸入邏輯 ---
-const modal = document.getElementById('inputModal');
-const displayEl = document.getElementById('displayNum');
-const noteEl = document.getElementById('noteInput');
-const modalTitle = document.getElementById('modalTitle');
-const btnConfirm = document.getElementById('btnConfirm');
-const btnDelete = document.getElementById('btnDelete');
-
 function openModal(category) {
     editingId = null; 
     currentCategory = category; 
@@ -189,7 +214,7 @@ function confirmRecord() {
         // 新增
         const now = new Date();
         records.unshift({
-            id: Date.now(), 
+            id: Date.now(), // 這是核心，使用當下時間戳記
             timestamp: now.toLocaleString(), 
             timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
             category: displayCategory, 
@@ -213,7 +238,7 @@ function deleteCurrentRecord() {
 // --- 系統功能 ---
 function saveAndRefresh() {
     localStorage.setItem('myMoneyRecordsV4', JSON.stringify(records));
-    // 判斷目前在哪個頁面就刷新哪個，避免切換
+    // 根據當前頁面刷新
     if (document.getElementById('tab-home').classList.contains('active')) {
         renderHome();
     } else {
@@ -234,10 +259,14 @@ function exportCSV() {
     records.forEach(r => csv += `${r.timestamp},${r.category},${r.amount}\n`);
     const link = document.createElement("a"); 
     link.href = encodeURI(csv);
-    link.download = `money_log_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `money_log_${getFormattedDate(Date.now()).replace(/\//g, '')}.csv`;
     document.body.appendChild(link); 
     link.click();
 }
 
 // 點擊背景關閉 Modal
-modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+window.onclick = function(e) {
+    if (e.target === document.getElementById('inputModal')) {
+        closeModal();
+    }
+}
