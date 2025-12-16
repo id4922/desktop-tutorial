@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>記帳 V7 (繽紛版)</title>
+    <title>記帳 V7.5 (終極版)</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -37,8 +37,8 @@
         <div class="toolbar">
             <div class="section-title">歷史紀錄</div>
             <div>
-                 <button onclick="exportCSV()" class="btn-icon" style="font-size:0.9rem; border-radius:6px; width:auto; padding:5px 10px;">📥</button>
-                 <button onclick="clearAllData()" class="btn-icon" style="font-size:0.9rem; border-radius:6px; width:auto; padding:5px 10px; color:red;">🗑️</button>
+                 <button onclick="exportCSV()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px;">📥 CSV</button>
+                 <button onclick="clearAllData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:red;">🗑️ 清空</button>
             </div>
         </div>
         <div id="historyListContainer"></div>
@@ -92,7 +92,7 @@
         <label style="font-size:0.9rem; color:#666;">名稱</label>
         <input type="text" id="settingNameInput" class="note-input" style="text-align:left; margin-top:5px;">
 
-        <label style="font-size:0.9rem; color:#666;">顏色風格</label>
+        <label style="font-size:0.9rem; color:#666;">選擇顏色 (20+色)</label>
         <div class="settings-grid" id="colorGrid">
             </div>
 
