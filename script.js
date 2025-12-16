@@ -578,11 +578,25 @@ function saveRecords() {
 }
 
 function switchTab(t) {
+    // 1. 隱藏所有分頁，移除所有按鈕活性
     document.querySelectorAll('.tab-content').forEach(e => e.style.display = 'none');
     document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+    
+    // 2. 顯示目標分頁，啟用目標按鈕
     document.getElementById(`tab-${t}`).style.display = 'block';
     document.getElementById(`nav-${t}`).classList.add('active');
-    if(t==='home') renderHome(); else renderHistory();
+    
+    // 3. 根據分頁重新渲染資料
+    if (t === 'home') {
+        renderHome();
+    } else if (t === 'history') {
+        renderHistory();
+    } else if (t === 'chart') {
+        // 【關鍵修正】
+        // 切換到分析頁時，立刻重設為「近一周」並刷新圖表
+        // setDateRange 內部會呼叫 updateChart()，所以資料會是最新的
+        setDateRange('week');
+    }
 }
 
 function exportCSV() {
@@ -611,10 +625,9 @@ window.onclick = function(e) {
 }
 
 // --- script.js 最下面新增 ---
-
 // 1. 備份功能 (存檔)
 async function backupData() {
-    // 把目前的 紀錄(records)、分類(categories)、背景(bgStyle) 全部打包起來
+    // A. 打包資料
     const backupObj = {
         version: "1.0", 
         exportDate: new Date().toLocaleString(),
@@ -623,14 +636,17 @@ async function backupData() {
         bgStyle: bgStyle
     };
 
-    // 轉成文字檔內容
     const jsonString = JSON.stringify(backupObj, null, 2);
     const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
     const file = new File([jsonString], fileName, { type: "application/json" });
 
-    // 判斷是用手機還是電腦
-    // 如果是手機，嘗試呼叫系統的「分享」選單 (可以傳到 Line 或存到檔案)
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // B. 判斷裝置與環境
+    // 檢查是否為手機 (簡單判斷 userAgent)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // C. 分流處理
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // --- 手機模式：嘗試呼叫分享選單 (Line/存到檔案) ---
         try {
             await navigator.share({
                 files: [file],
@@ -638,18 +654,32 @@ async function backupData() {
                 text: '這是我的記帳備份檔'
             });
         } catch (err) {
-            // 如果使用者按取消，就不做任何事
-            console.log("分享取消");
+            // 如果使用者按取消 (AbortError)，就不做反應
+            // 如果是其他錯誤 (例如瀏覽器不支援)，則切換成下載模式
+            if (err.name !== 'AbortError') {
+                console.warn("分享失敗，改為直接下載", err);
+                downloadFile(file, fileName);
+            }
         }
     } else {
-        // 如果是電腦，或手機不支援分享，就直接下載檔案
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(file);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // --- 電腦模式：直接下載檔案 ---
+        downloadFile(file, fileName);
     }
+}
+
+// 輔助：下載檔案 (電腦版必備)
+function downloadFile(fileBlob, fileName) {
+    // 建立一個隱藏的下載連結
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(fileBlob);
+    link.download = fileName;
+    
+    // 必須要把連結加入到網頁中，Firefox 等瀏覽器才能觸發點擊
+    document.body.appendChild(link);
+    link.click(); // 模擬點擊
+    
+    // 點完後移除
+    document.body.removeChild(link);
 }
 
 // 2. 還原功能 (讀檔) - 觸發選檔案的視窗
@@ -663,43 +693,35 @@ function restoreData(inputElement) {
     if (!file) return;
 
     const reader = new FileReader();
-    
-    // 當檔案讀取完成後，執行以下動作
     reader.onload = function(e) {
         try {
-            // 把文字轉回資料
             const data = JSON.parse(e.target.result);
 
-            // 簡單檢查一下是不是正確的備份檔
             if (!data.records || !data.categories) {
                 return alert("這不是正確的備份檔案！");
             }
 
             if (!confirm(`確定要還原備份嗎？\n(備份日期: ${data.exportDate || '未知'})\n\n⚠️ 這將會覆蓋現有的所有資料！`)) {
-                inputElement.value = ''; // 如果取消，清空選擇
+                inputElement.value = ''; 
                 return;
             }
 
-            // 開始覆蓋資料
             records = data.records;
             categories = data.categories;
             if (data.bgStyle) bgStyle = data.bgStyle;
 
-            // 儲存到手機記憶體 (localStorage)
             saveRecords();
             saveCategories(); 
             localStorage.setItem('myBgStyle', bgStyle);
+            document.body.style.background = bgStyle;
             
             alert("還原成功！頁面將重新整理。");
-            
-            // 重新整理頁面，讓資料生效
             location.reload();
 
         } catch (err) {
             alert("檔案讀取失敗，格式可能錯誤。");
         }
     };
-    // 開始讀取文字檔
     reader.readAsText(file);
 }
 // --- script.js 最尾端新增 ---
