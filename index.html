@@ -40,16 +40,24 @@
         <ul class="log-list" id="homeList"></ul>
     </div>
 
-    <div id="tab-history" class="tab-content">
-        <div class="toolbar">
-            <div class="section-title">歷史紀錄</div>
-            <div>
-                 <button onclick="exportCSV()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px;">📥 CSV</button>
-                 <button onclick="clearAllData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:red;">🗑️ 清空</button>
-            </div>
-        </div>
-        <div id="historyListContainer"></div>
-    </div>
+	<div id="tab-history" class="tab-content">
+		<div class="toolbar">
+			<div class="section-title">歷史紀錄</div>
+			<div>
+				<button onclick="generateFakeData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#1976D2;">🧪 測試資料</button>
+				 
+				<button onclick="backupData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#2E7D32;">📤 備份</button>
+				<button onclick="triggerRestore()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:#E65100;">📥 還原</button>
+				
+				<button onclick="exportCSV()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px;">📥 CSV</button>
+				<button onclick="clearAllData()" class="btn-icon" style="font-size:0.9rem; padding:5px 10px; color:red;">🗑️ 清空</button>
+			</div>
+		</div>
+		
+		<input type="file" id="restoreInput" style="display:none" accept=".json" onchange="restoreData(this)">
+		
+		<div id="historyListContainer"></div>
+	</div>
 	
 	<div id="tab-chart" class="tab-content">
         <div class="toolbar">
