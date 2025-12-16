@@ -3,207 +3,388 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的隨身記帳</title>
+    <title>我的隨身記帳 V3</title>
     <style>
+        /* --- 全局設定 --- */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", Roboto, sans-serif;
             background-color: #f0f2f5;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
             margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            padding: 0; /* 移除 padding 以便滿版 */
+            -webkit-tap-highlight-color: transparent; /* 移除點擊高亮 */
         }
 
+        /* --- 主畫面容器 --- */
         .container {
-            background: white;
+            max-width: 600px;
+            margin: 0 auto;
             padding: 20px;
+            padding-bottom: 80px; /* 預留底部空間 */
+            min-height: 100vh;
+            box-sizing: border-box;
+            background: white;
+        }
+
+        h2 { margin-top: 0; color: #333; font-size: 1.2rem; }
+
+        /* 總金額顯示區 */
+        .total-section {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             border-radius: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            width: 100%;
-            max-width: 400px;
+            padding: 20px;
+            margin-bottom: 25px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             text-align: center;
         }
+        .total-label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 5px; }
+        .total-amount { font-size: 2.8rem; font-weight: 700; margin: 0; }
 
-        h2 { margin: 0 0 15px 0; color: #333; font-size: 1.2rem;}
-
-        .total-section {
-            background: #e3f2fd;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 20px;
+        /* 分類按鈕網格 (主畫面核心) */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 兩欄 */
+            gap: 15px;
+            margin-bottom: 30px;
         }
-        
-        .total-label { font-size: 0.9rem; color: #555; }
-        .total-amount { font-size: 2.5rem; color: #1976d2; font-weight: bold; margin: 5px 0; }
 
-        input[type="number"] {
-            width: 100%;
-            padding: 15px;
-            font-size: 1.5rem;
+        .cat-btn {
+            background-color: white;
             border: 2px solid #e0e0e0;
             border-radius: 12px;
-            margin-bottom: 20px;
-            text-align: center;
-            box-sizing: border-box;
-            outline: none;
-            -moz-appearance: textfield; /* Firefox */
-        }
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input:focus { border-color: #2196f3; }
-
-        .button-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            padding: 15px;
-            font-size: 1.1rem;
-            border: none;
-            border-radius: 10px;
+            padding: 20px 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #444;
             cursor: pointer;
-            background-color: #2196f3;
-            color: white;
-            font-weight: 500;
-            touch-action: manipulation; /* 優化觸控 */
+            transition: all 0.1s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        .btn:active { background-color: #1565c0; transform: scale(0.96); }
+        .cat-btn:active {
+            background-color: #f5f5f5;
+            transform: scale(0.98);
+            border-color: #bbb;
+        }
+        /* 特別色的按鈕 */
+        .cat-btn.special { color: #5e35b1; border-color: #d1c4e9; background-color: #f3e5f5; }
 
-        .action-bar {
+        /* 紀錄列表 */
+        .log-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
         }
-
-        .btn-small {
-            padding: 8px 15px;
-            font-size: 0.9rem;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-        }
-        .btn-danger { background-color: #ffcdd2; color: #c62828; }
-        .btn-success { background-color: #c8e6c9; color: #2e7d32; }
-
         .log-list {
             list-style: none;
             padding: 0;
-            margin-top: 10px;
-            text-align: left;
-            max-height: 300px;
-            overflow-y: auto;
+            margin: 0;
         }
-
         .log-item {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .log-info { display: flex; flex-direction: column; }
-        .log-time { font-size: 0.75rem; color: #999; margin-bottom: 2px;}
-        .log-cat { font-weight: bold; color: #444; }
-        .log-money { font-weight: bold; color: #2c3e50; font-size: 1.1rem; }
+        .log-time { font-size: 0.75rem; color: #999; margin-bottom: 3px; }
+        .log-cat { font-size: 1rem; color: #333; font-weight: 500; }
+        .log-money { font-size: 1.1rem; font-weight: bold; color: #2c3e50; }
+
+        /* --- 彈出視窗 (Modal) 與 數字鍵盤 --- */
+        .modal-overlay {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: flex-end; /* 從底部彈出 */
+            backdrop-filter: blur(3px);
+        }
+        
+        .modal-content {
+            background-color: white;
+            width: 100%;
+            max-width: 600px; /* 平板適配 */
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: slideUp 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #555;
+        }
+        .btn-close {
+            background: none; border: none; font-size: 1.5rem; color: #999; padding: 0 10px;
+        }
+
+        /* 數字顯示窗 */
+        .display-window {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: right;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+            font-family: monospace; /* 等寬字體數字較好看 */
+        }
+
+        /* 數字鍵盤網格 */
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .num-btn {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #333;
+            box-shadow: 0 2px 0 #eee;
+        }
+        .num-btn:active { background-color: #e0e0e0; transform: translateY(2px); box-shadow: none; }
+        
+        .btn-backspace { background-color: #ffcdd2; color: #c62828; border-color: #ef9a9a; }
+        .btn-confirm { 
+            grid-column: span 3; /* 佔滿整行 */
+            background-color: #2196f3; 
+            color: white; 
+            border: none;
+            font-weight: bold;
+            box-shadow: 0 2px 0 #1976d2;
+        }
+        .btn-confirm:active { background-color: #1565c0; }
+
+        /* 備註欄 */
+        .note-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .note-input:focus { border-color: #2196f3; outline: none; }
+
+        /* 底部功能列 */
+        .footer-actions {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .btn-small {
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid #ccc;
+            background: white;
+            font-size: 0.85rem;
+            color: #666;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>今日消費</h2>
-    
     <div class="total-section">
-        <div class="total-label">目前總計</div>
+        <div class="total-label">今日花費總計</div>
         <div class="total-amount">$<span id="totalMoney">0</span></div>
     </div>
 
-    <input type="number" id="amountInput" placeholder="輸入金額" inputmode="decimal">
-
-    <div class="button-grid">
-        <button class="btn" onclick="addRecord('早餐')">早餐</button>
-        <button class="btn" onclick="addRecord('午餐')">午餐</button>
-        <button class="btn" onclick="addRecord('咖啡')">咖啡</button>
-        <button class="btn" onclick="addRecord('晚餐')">晚餐</button>
-        <button class="btn" style="background-color: #7e57c2;" onclick="addRecord('雜支')">雜支</button>
-        <button class="btn" style="background-color: #7e57c2;" onclick="addRecord('交通')">交通</button>
+    <div class="category-grid">
+        <button class="cat-btn" onclick="openModal('早餐')">🥪 早餐</button>
+        <button class="cat-btn" onclick="openModal('午餐')">🍱 午餐</button>
+        <button class="cat-btn" onclick="openModal('晚餐')">🍲 晚餐</button>
+        <button class="cat-btn" onclick="openModal('咖啡')">☕ 咖啡</button>
+        <button class="cat-btn" onclick="openModal('飲料')">🥤 飲料</button>
+        <button class="cat-btn special" onclick="openModal('交通')">🚆 交通</button>
+        <button class="cat-btn special" onclick="openModal('雜支')">🛒 雜支</button>
+        <button class="cat-btn special" onclick="openModal('其他')">📝 其他</button>
     </div>
 
-    <div class="action-bar">
-        <button class="btn-small btn-danger" onclick="clearData()">🗑️ 清空</button>
-        <button class="btn-small btn-success" onclick="exportCSV()">📥 下載 CSV</button>
+    <div class="log-header">
+        <span>消費紀錄</span>
+        <small style="color:#999">最近 50 筆</small>
     </div>
+    <ul class="log-list" id="logList">
+        </ul>
 
-    <ul class="log-list" id="logList"></ul>
+    <div class="footer-actions">
+        <button class="btn-small" onclick="exportCSV()">📥 下載 CSV</button>
+        <button class="btn-small" style="color:red; border-color: pink;" onclick="clearData()">🗑️ 清空紀錄</button>
+    </div>
+</div>
+
+<div id="inputModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span id="modalTitle">記錄金額</span>
+            <button class="btn-close" onclick="closeModal()">×</button>
+        </div>
+
+        <div class="display-window" id="displayNum">0</div>
+
+        <input type="text" id="noteInput" class="note-input" placeholder="備註 (選填，如: 牛肉麵)">
+
+        <div class="numpad">
+            <button class="num-btn" onclick="pressNum('1')">1</button>
+            <button class="num-btn" onclick="pressNum('2')">2</button>
+            <button class="num-btn" onclick="pressNum('3')">3</button>
+            
+            <button class="num-btn" onclick="pressNum('4')">4</button>
+            <button class="num-btn" onclick="pressNum('5')">5</button>
+            <button class="num-btn" onclick="pressNum('6')">6</button>
+            
+            <button class="num-btn" onclick="pressNum('7')">7</button>
+            <button class="num-btn" onclick="pressNum('8')">8</button>
+            <button class="num-btn" onclick="pressNum('9')">9</button>
+            
+            <button class="num-btn btn-backspace" onclick="pressNum('DEL')">⌫</button>
+            <button class="num-btn" onclick="pressNum('0')">0</button>
+            <button class="num-btn btn-confirm" onclick="confirmRecord()">確認記錄</button>
+        </div>
+    </div>
 </div>
 
 <script>
+    // --- 變數與初始化 ---
     let records = [];
-    const totalEl = document.getElementById('totalMoney');
-    const inputEl = document.getElementById('amountInput');
-    const listEl = document.getElementById('logList');
+    let currentCategory = '';
+    let currentAmountStr = '0'; // 使用字串處理輸入邏輯
 
-    // 1. 初始化：打開網頁時，讀取舊資料
+    const totalEl = document.getElementById('totalMoney');
+    const listEl = document.getElementById('logList');
+    const modal = document.getElementById('inputModal');
+    const displayEl = document.getElementById('displayNum');
+    const noteEl = document.getElementById('noteInput');
+    const modalTitle = document.getElementById('modalTitle');
+
     window.onload = function() {
-        const savedData = localStorage.getItem('myMoneyRecords');
+        const savedData = localStorage.getItem('myMoneyRecordsV3');
         if (savedData) {
             records = JSON.parse(savedData);
             render();
         }
     };
 
-    function addRecord(category) {
-        const amount = parseInt(inputEl.value);
-        if (isNaN(amount) || amount <= 0) {
-            alert("請輸入金額！");
+    // --- Modal 操作 ---
+    function openModal(category) {
+        currentCategory = category;
+        currentAmountStr = '0'; // 重置金額
+        noteEl.value = ''; // 重置備註
+        
+        modalTitle.textContent = `記一筆：${category}`;
+        updateDisplay();
+        
+        modal.style.display = 'flex'; // 顯示彈窗
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+    }
+
+    // --- 鍵盤邏輯 ---
+    function pressNum(key) {
+        // 刪除鍵
+        if (key === 'DEL') {
+            if (currentAmountStr.length > 1) {
+                currentAmountStr = currentAmountStr.slice(0, -1);
+            } else {
+                currentAmountStr = '0';
+            }
+        } 
+        // 數字鍵
+        else {
+            // 5. 輸入上限 9 位數
+            if (currentAmountStr.length >= 9) return;
+
+            // 處理開頭的 0
+            if (currentAmountStr === '0') {
+                currentAmountStr = key;
+            } else {
+                currentAmountStr += key;
+            }
+        }
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        displayEl.textContent = currentAmountStr;
+    }
+
+    // --- 儲存邏輯 ---
+    function confirmRecord() {
+        const amount = parseInt(currentAmountStr);
+        if (amount === 0) {
+            alert("金額不能為 0");
             return;
         }
 
-        // 建立資料物件
         const now = new Date();
+        const note = noteEl.value.trim();
+        
+        // 7. 格式化項目名稱
+        let finalCategory = currentCategory;
+        if (note) {
+            finalCategory = `${currentCategory} (${note})`;
+        }
+
         const newRecord = {
-            id: Date.now(), // 唯一ID
-            timestamp: now.toLocaleString(), // 完整時間格式
+            id: Date.now(),
+            timestamp: now.toLocaleString(),
             timeDisplay: `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`,
-            category: category,
+            category: finalCategory,
             amount: amount
         };
 
-        // 加入陣列並儲存
-        records.unshift(newRecord); // 加到最前面
+        records.unshift(newRecord);
         saveAndRender();
-        
-        inputEl.value = '';
-        inputEl.focus();
+        closeModal();
     }
 
+    // --- 系統功能 (同舊版) ---
     function saveAndRender() {
-        // 存入 localStorage
-        localStorage.setItem('myMoneyRecords', JSON.stringify(records));
+        localStorage.setItem('myMoneyRecordsV3', JSON.stringify(records));
         render();
     }
 
     function render() {
-        // 計算總和
         const total = records.reduce((sum, r) => sum + r.amount, 0);
-        totalEl.textContent = total;
+        totalEl.textContent = total.toLocaleString(); // 加千分位逗號
 
-        // 繪製列表
         listEl.innerHTML = '';
         records.forEach(r => {
             const li = document.createElement('li');
             li.className = 'log-item';
             li.innerHTML = `
                 <div class="log-info">
-                    <span class="log-time">${r.timestamp}</span>
+                    <span class="log-time">${r.timeDisplay}</span>
                     <span class="log-cat">${r.category}</span>
                 </div>
                 <span class="log-money">$${r.amount}</span>
@@ -220,24 +401,22 @@
     }
 
     function exportCSV() {
-        if(records.length === 0) {
-            alert("沒有資料可以匯出");
-            return;
-        }
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM for Excel
-        csvContent += "時間,項目,金額\n";
-        
-        records.forEach(function(row) {
+        if(records.length === 0) return alert("無資料");
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF時間,項目,金額\n";
+        records.forEach(row => {
             csvContent += `${row.timestamp},${row.category},${row.amount}\n`;
         });
-
-        const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "my_money_log.csv");
+        link.href = encodeURI(csvContent);
+        link.download = `money_log_${new Date().toISOString().slice(0,10)}.csv`;
         document.body.appendChild(link);
         link.click();
     }
+    
+    // 點擊遮罩關閉 (選用)
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
 </script>
 
 </body>
