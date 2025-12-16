@@ -29,7 +29,7 @@ let editingRecordId = null;
 let currentCategoryName = ''; 
 let isEditMode = false;
 let editingCatIndex = null; 
-
+let isNewCategory = false;
 // --- 初始化 ---
 window.onload = function() {
     initElements(); 
@@ -116,8 +116,12 @@ function renderCategories() {
 }
 
 function handleCategoryClick(index) {
-    if (isEditMode) openSettingsModal(index);
-    else openInputModal(categories[index].name);
+    if (isEditMode) {
+        isCreatingNew = false; // 這是舊的，不是新增
+        openSettingsModal(index);
+    } else {
+        openInputModal(categories[index].name);
+    }
 }
 
 function setupSortable() {
@@ -175,28 +179,62 @@ function openSettingsModal(index) {
 
 function saveCategorySettings() {
     const newName = settingNameInput.value.trim();
+    
+    // 狀況一：沒輸入名字 -> 警告
     if (!newName) return alert("請輸入名稱");
+
+    // 狀況二：是新增模式，且名字完全沒變 ("新項目") -> 視為取消新增，刪除之
+    if (isCreatingNew && newName === "新項目") {
+        categories.splice(editingCatIndex, 1);
+        saveCategories();
+        
+        isCreatingNew = false; // 重置標記，避免 closeSettingsModal 重複刪除
+        closeSettingsModal(); // 這裡會正常關閉
+        return;
+    }
+
+    // 狀況三：正常儲存
     categories[editingCatIndex].name = newName;
     categories[editingCatIndex].color = tempColor;
+    
+    isCreatingNew = false; // 成功儲存，解除新增鎖定
     saveCategories();
     closeSettingsModal();
 }
 
 function deleteCategory() {
-    if(confirm(`確定要刪除「${categories[editingCatIndex].name}」嗎？`)) {
-        categories.splice(editingCatIndex, 1);
-        saveCategories();
-        closeSettingsModal();
+    // 為了安全，如果是舊按鈕才跳詢問；如果是剛新增的(還沒改名)，直接刪除不囉嗦
+    if (!isCreatingNew && !confirm(`確定要刪除「${categories[editingCatIndex].name}」嗎？`)) {
+        return;
     }
+    
+    categories.splice(editingCatIndex, 1);
+    saveCategories();
+    
+    isCreatingNew = false; // 既然手動刪了，就不用再自動刪
+    settingsModal.style.display = 'none'; // 不要呼叫 closeSettingsModal() 避免邏輯打架，直接隱藏
 }
-
 function addNewCategory() {
     categories.push({ name: "新項目", color: "white" });
-    saveCategories();
+    saveCategories(); 
+    
+    isCreatingNew = true; // 鎖定：這是新增模式
+    
+    // 開啟最後一個 (即剛新增的那個)
     setTimeout(() => openSettingsModal(categories.length - 1), 100);
 }
 
-function closeSettingsModal() { settingsModal.style.display = 'none'; }
+function closeSettingsModal() {
+    // 如果還在「新增模式」就按了關閉 (代表使用者反悔了，或者沒按儲存)
+    if (isCreatingNew) {
+        categories.splice(editingCatIndex, 1); // 刪除那個暫存的「新項目」
+        saveCategories();
+        isCreatingNew = false; // 重置
+    }
+    
+    settingsModal.style.display = 'none';
+}
+
 function saveCategories(render = true) {
     localStorage.setItem('myCategoriesV2', JSON.stringify(categories));
     if(render) renderCategories();
@@ -344,4 +382,17 @@ function exportCSV() {
 
 function clearAllData() { if(confirm("清空所有資料？")) { records=[]; saveRecords(); } }
 
-window.onclick = function(e) { if(e.target.classList.contains('modal-overlay')) e.target.style.display = 'none'; }
+window.onclick = function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        // 判斷目前點到的是哪個視窗的背景
+        if (e.target.id === 'settingsModal') {
+            // 關鍵！必須呼叫這個函式，才會執行「新增未存檔則刪除」的邏輯
+            closeSettingsModal(); 
+        } else if (e.target.id === 'bgModal') {
+            closeBgModal();
+        } else {
+            // 預設關閉記帳輸入視窗
+            closeModal(); 
+        }
+    }
+}
