@@ -688,44 +688,48 @@ window.onclick = function(e) {
 }
 
 // --- script.js 最下面新增 ---
-// 1. 備份功能 (存檔)
+// --- script.js backupData 修正版 ---
+
 async function backupData() {
-    // A. 打包資料
+    // 1. 取得當地的年月日時分秒 (解決跨日變昨天的問題)
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    
+    // 檔名改成：記帳備份_2025-01-12.json
+    const fileName = `記帳備份_${yyyy}-${mm}-${dd}.json`;
+
+    // 2. 打包資料
     const backupObj = {
         version: "1.0", 
-        exportDate: new Date().toLocaleString(),
+        // 匯出時間也加上清楚的標示
+        exportDate: now.toLocaleString(), 
         records: records,
         categories: categories,
         bgStyle: bgStyle
     };
 
     const jsonString = JSON.stringify(backupObj, null, 2);
-    const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
     const file = new File([jsonString], fileName, { type: "application/json" });
 
-    // B. 判斷裝置與環境
-    // 檢查是否為手機 (簡單判斷 userAgent)
+    // 3. 判斷裝置與環境
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
-    // C. 分流處理
     if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        // --- 手機模式：嘗試呼叫分享選單 (Line/存到檔案) ---
         try {
             await navigator.share({
                 files: [file],
                 title: '記帳備份',
-                text: '這是我的記帳備份檔'
+                text: `這是我的記帳備份檔 (${yyyy}-${mm}-${dd})`
             });
         } catch (err) {
-            // 如果使用者按取消 (AbortError)，就不做反應
-            // 如果是其他錯誤 (例如瀏覽器不支援)，則切換成下載模式
             if (err.name !== 'AbortError') {
-                console.warn("分享失敗，改為直接下載", err);
                 downloadFile(file, fileName);
             }
         }
     } else {
-        // --- 電腦模式：直接下載檔案 ---
+        // 電腦模式
         downloadFile(file, fileName);
     }
 }
