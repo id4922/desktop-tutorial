@@ -1,294 +1,891 @@
-/* --- style.css --- */
-body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; 
-    margin: 0; padding-bottom: 80px; 
-    -webkit-tap-highlight-color: transparent;
-    background: linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%);
-    min-height: 100vh;
-    transition: background 0.5s ease;
+// --- script.js (V7.7 修復版) ---
+
+let records = [];
+let categories = []; 
+let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
+
+// 16色 色票庫
+const THEME_COLORS = [
+    { val: "white", label: "簡約白" },
+    { val: "#fff9c4", label: "奶油黃" },
+    { val: "#e1bee7", label: "淡紫" },
+    { val: "#b2dfdb", label: "薄荷" },
+    { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
+    { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
+    { val: "linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)", label: "珊瑚紅" },
+    { val: "linear-gradient(135deg, #ff80ab 0%, #ff4081 100%)", label: "亮桃紅" },
+    { val: "linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%)", label: "暖橘" },
+    { val: "linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%)", label: "可可" },
+    { val: "#ff5252", label: "警示紅" },
+    { val: "#333333", label: "酷黑" },
+    { val: "linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%)", label: "天空藍" },
+    { val: "linear-gradient(135deg, #9fa8da 0%, #5c6bc0 100%)", label: "靛青" },
+    { val: "linear-gradient(135deg, #80cbc4 0%, #009688 100%)", label: "湖水綠" },
+    { val: "linear-gradient(135deg, #b39ddb 0%, #7e57c2 100%)", label: "深紫" }
+];
+
+const AUTO_COLORS = [
+    "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", 
+    "#FF9F40", "#8D6E63", "#EC407A", "#7E57C2", "#26A69A"
+];
+
+let currentAmountStr = '0'; 
+let editingRecordId = null; 
+let currentCategoryName = ''; 
+let isEditMode = false;
+let editingCatIndex = null; 
+let isNewCategory = false;
+let trashSortable = null;
+let expenseChart = null;
+let recordDateInput, btnDateTrigger, dateDisplayText;
+
+// --- 初始化 ---
+window.onload = function() {
+    initElements(); 
+
+    const savedData = localStorage.getItem('myMoneyRecordsV4'); 
+    if (savedData) records = JSON.parse(savedData);
+
+    const savedBg = localStorage.getItem('myBgStyle');
+    if (savedBg) {
+        bgStyle = savedBg;
+        document.body.style.background = bgStyle;
+    }
+
+    const savedCats = localStorage.getItem('myCategoriesV2'); 
+    if (savedCats) {
+        categories = JSON.parse(savedCats);
+    } else {
+        const oldCats = localStorage.getItem('myCategoriesV1');
+        if (oldCats) {
+            const oldArr = JSON.parse(oldCats);
+            categories = oldArr.map(name => ({ name: name, color: "white" }));
+        } else {
+            const defaults = ["早餐", "午餐", "晚餐", "咖啡", "飲料", "點心", "交通", "雜支", "其他"];
+            categories = defaults.map(name => ({ name: name, color: "white" }));
+        }
+    }
+
+    renderCategories();
+    renderHome();
+	initChartPage();
+};
+
+let modal, displayEl, noteInput, btnConfirmRecord, btnDeleteRecord;
+let settingsModal, settingNameInput, colorGrid, bgModal;
+
+function initElements() {
+    modal = document.getElementById('inputModal');
+    displayEl = document.getElementById('displayNum');
+    noteInput = document.getElementById('noteInput');
+    btnConfirmRecord = document.getElementById('btnConfirmRecord');
+    btnDeleteRecord = document.getElementById('btnDeleteRecord');
+    
+	recordDateInput = document.getElementById('recordDateInput');
+    btnDateTrigger = document.getElementById('btnDateTrigger');
+    dateDisplayText = document.getElementById('dateDisplayText');
+	
+    settingsModal = document.getElementById('settingsModal');
+    settingNameInput = document.getElementById('settingNameInput');
+    colorGrid = document.getElementById('colorGrid');
+    bgModal = document.getElementById('bgModal');
+}
+function getLocalTodayString() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+function getChartColor(catName, index) {
+    const cat = categories.find(c => c.name === catName);
+    let color = cat ? cat.color : "white";
+
+    // 處理漸層色：取第一個顏色
+    if (color.includes("linear-gradient")) {
+        const match = color.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
+        if (match) color = match[0];
+    }
+
+    // 【關鍵修正】如果顏色是白色 (或是太淺的顏色)，就改用自動色票
+    if (color === 'white' || color === '#ffffff' || color === '#fff') {
+        // 使用 index 取餘數，確保顏色會循環使用
+        color = AUTO_COLORS[index % AUTO_COLORS.length];
+    }
+
+    return color;
 }
 
-.container { 
-    max-width: 600px; margin: 0 auto; padding: 20px; 
-    background: rgba(255, 255, 255, 0.85); 
-    backdrop-filter: blur(10px);
-    min-height: 100vh;
-    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+// --- 渲染與拖曳設定 ---
+const categoryGrid = document.getElementById('categoryGrid');
+let sortableInstance = null;
+
+function renderCategories() {
+    categoryGrid.innerHTML = '';
+    categories.forEach((cat, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'cat-btn';
+        btn.textContent = cat.name;
+        btn.style.background = cat.color;
+        
+        if (cat.color.includes("#333") || cat.color.includes("linear") || cat.color === "#ff5252") {
+            if (cat.color.includes("linear") || cat.color === "#ff5252") {
+                 btn.style.color = "#444"; 
+                 btn.style.fontWeight = "bold";
+                 btn.style.textShadow = "0 1px 0 rgba(255,255,255,0.4)";
+            }
+            if (cat.color === "#333333") {
+                btn.style.color = "white"; btn.style.textShadow = "none";
+            }
+        }
+
+        // 綁定點擊事件
+        btn.onclick = () => handleCategoryClick(index);
+        categoryGrid.appendChild(btn);
+    });
+
+    if (isEditMode) {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'cat-btn btn-add-cat';
+        addBtn.textContent = '+';
+        addBtn.onclick = addNewCategory;
+        categoryGrid.appendChild(addBtn);
+    }
+    setupSortable();
 }
 
-.total-section { 
-    background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px; 
-    text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-.total-label { font-size: 0.9rem; color: #888; margin-bottom: 5px; }
-.total-amount { font-size: 2.8rem; font-weight: 700; color: #333; margin: 0; }
-
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.section-title { font-size: 1.1rem; color: #444; font-weight: bold; margin: 0; }
-.btn-icon { 
-    background: white; border: none; font-size: 1.2rem; padding: 8px; 
-    border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; margin-left: 8px;
+function handleCategoryClick(index) {
+    if (isEditMode) {
+        isCreatingNew = false; // 這是舊的，不是新增
+        openSettingsModal(index);
+    } else {
+        openInputModal(categories[index].name);
+    }
 }
 
-.category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 30px; }
-.cat-btn {
-    border: none; border-radius: 18px; font-size: 1.1rem; font-weight: 600; color: #555;
-    aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.1s;
-    background: white; padding: 5px; text-align: center; word-break: break-all;
-}
-.cat-btn:active { transform: scale(0.95); }
-.edit-mode .cat-btn { animation: shake 0.3s infinite alternate; border: 2px dashed #ffa726; }
-.edit-mode .cat-btn:active { animation: none; transform: scale(0.95); } 
-@keyframes shake { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
-.btn-add-cat { border: 2px dashed #ccc; background: rgba(255,255,255,0.5); font-size: 2rem; color: #999; }
+// --- script.js 修改區 ---
 
-.log-list { list-style: none; padding: 0; margin: 0; }
-.log-item { padding: 15px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
-.log-info { display: flex; flex-direction: column; }
-.log-time { font-size: 0.75rem; color: #999; }
-.log-cat { font-size: 1rem; color: #333; font-weight: 500; }
-.log-money { font-size: 1.1rem; font-weight: bold; color: #2c3e50; }
-.history-date-header { background: rgba(0,0,0,0.03); padding: 8px 12px; margin-top: 15px; border-radius: 8px; font-weight: bold; display: flex; justify-content: space-between; color: #555; }
-.daily-total { color: #e91e63; }
+function setupSortable() {
+    if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null; }
+    if (trashSortable) { trashSortable.destroy(); trashSortable = null; }
+    
+    if (!isEditMode) return;
 
-.bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; padding: 12px 0; z-index: 900; box-shadow: 0 -2px 10px rgba(0,0,0,0.03); }
-.nav-btn { background: none; border: none; font-size: 1rem; color: #aaa; display: flex; flex-direction: column; align-items: center; }
-.nav-btn.active { color: #e91e63; font-weight: bold; }
+    const delZone = document.getElementById('deleteZone');
 
-.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-end; backdrop-filter: blur(3px); }
-.modal-content { background: white; width: 100%; max-width: 600px; border-radius: 24px 24px 0 0; padding: 25px; box-sizing: border-box; animation: slideUp 0.25s ease-out; }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    // A. 設定「按鈕列表」 (來源)
+    sortableInstance = new Sortable(categoryGrid, {
+        group: 'shared',
+        animation: 150, 
+        disabled: false,
+        filter: '.btn-add-cat',
+        delay: 200, 
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
+        
+        onEnd: function (evt) {
+            if (evt.to === categoryGrid) {
+                const item = categories.splice(evt.oldIndex, 1)[0];
+                categories.splice(evt.newIndex, 0, item);
+                saveCategories(false); 
+            }
+        }
+    });
 
-.display-window { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: right; font-size: 2.5rem; font-weight: bold; color: #444; margin-bottom: 10px; font-family: monospace; }
-.note-input { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; font-size: 1rem; text-align: center; box-sizing: border-box; margin-bottom: 15px; background: #fdfdfd; }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.num-btn { background: white; border: 1px solid #eee; border-radius: 12px; padding: 15px; font-size: 1.4rem; font-weight: 500; box-shadow: 0 2px 0 #f0f0f0; }
-.num-btn:active { background: #eee; transform: translateY(2px); box-shadow: none;}
-.btn-confirm { grid-column: span 2; background: #e91e63; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #c2185b; }
-.btn-delete { background: #ff5252; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #d32f2f; }
+    // B. 設定「刪除區」 (目的地)
+    trashSortable = new Sortable(delZone, {
+        group: 'shared',
+        ghostClass: 'delete-zone-hover',
+        
+        // --- 這裡有重大修改 ---
+        onAdd: function (evt) {
+            const oldIndex = evt.oldIndex;
+            const item = categories[oldIndex];
 
-/* --- 關鍵修正區：設定彈窗的色票網格 (V7.9) --- */
-/* --- style.css --- */
+            // 【關鍵修正】
+            // 立即把被拖進來的那個按鈕元素從紅色框框中移除！
+            // 這樣它就不會「卡」在裡面了。
+            evt.item.remove(); 
 
-/* ... (上面保持不變) ... */
-
-/* --- 修正版：防止圓圈被切到 --- */
-.settings-grid { 
-    /* 保持您原本的設定 */
-    display: grid; 
-    grid-template-columns: repeat(5, 1fr); 
-    gap: 10px; 
-    margin: 15px 0; 
-    max-height: 250px; 
-    overflow-y: auto; 
-    overflow-x: hidden;
-    padding: 10px 35px 10px 10px; 
-    width: 100%; 
-    box-sizing: border-box;
-}
-
-/* 讓手機的卷軸細一點，比較好看 (選用) */
-.settings-grid::-webkit-scrollbar {
-    width: 6px;
-}
-.settings-grid::-webkit-scrollbar-thumb {
-    background-color: #ccc;
-    border-radius: 4px;
-}
-.settings-grid::-webkit-scrollbar-track {
-    background: transparent;
+            // 接著執行刪除確認邏輯
+            if (confirm(`確定要刪除「${item.name}」嗎？`)) {
+                categories.splice(oldIndex, 1);
+                saveCategories(true); // 存檔並重繪 (按鈕真正消失)
+            } else {
+                // 如果取消，因為我們剛剛把 DOM 刪了，
+                // 必須呼叫重繪，讓按鈕在原本的列表中「復活」
+                renderCategories();
+            }
+        }
+    });
 }
 
-/* 色票樣式微調 */
-.color-swatch { 
-    width: 100%; 
-    aspect-ratio: 1; 
-    border-radius: 50%; 
-    border: 2px solid white; 
-    /* 陰影稍微縮小一點，避免擴散太出去 */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15); 
-    cursor: pointer; 
-    transition: transform 0.15s;
-    margin: 0 auto; /* 確保置中 */
+// --- 設定邏輯 ---
+let tempColor = "white";
+
+function renderColorGrid(targetGrid, onClickCallback, selectedColor) {
+    targetGrid.innerHTML = '';
+    THEME_COLORS.forEach(c => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.background = c.val;
+        if (c.val === selectedColor) swatch.classList.add('selected');
+        swatch.onclick = () => {
+            Array.from(targetGrid.children).forEach(child => child.classList.remove('selected'));
+            swatch.classList.add('selected');
+            onClickCallback(c.val);
+        };
+        targetGrid.appendChild(swatch);
+    });
 }
 
-/* 選取時的特效 */
-.color-swatch.selected { 
-    border: 3px solid #555; 
-    /* 放大比例稍微改小，避免太凸出 */
-    transform: scale(1.1); 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.25); 
-    z-index: 1; /* 確保浮在最上層 */
+function openSettingsModal(index) {
+    editingCatIndex = index;
+    const cat = categories[index];
+    settingNameInput.value = cat.name;
+    tempColor = cat.color || "white";
+    
+    renderColorGrid(colorGrid, (val) => { tempColor = val; }, tempColor);
+    settingsModal.style.display = 'flex';
 }
 
-.btn-round-delete {
-    background: #ffebee;
-    color: #ff5252;
-    border: 1px solid #ffcdd2;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-/* 新增：輸入區塊的容器，讓刪除鈕在左，輸入框在右 */
-.input-group-row {
-    display: flex;
-    align-items: center; /* 垂直置中 */
-    gap: 15px; /* 按鈕跟輸入框的距離 */
-    margin-bottom: 10px;
+function saveCategorySettings() {
+    const newName = settingNameInput.value.trim();
+    
+    // 狀況一：沒輸入名字 -> 警告
+    if (!newName) return alert("請輸入名稱");
+
+    // 狀況二：是新增模式，且名字完全沒變 ("新項目") -> 視為取消新增，刪除之
+    if (isCreatingNew && newName === "新項目") {
+        categories.splice(editingCatIndex, 1);
+        saveCategories();
+        
+        isCreatingNew = false; // 重置標記，避免 closeSettingsModal 重複刪除
+        closeSettingsModal(); // 這裡會正常關閉
+        return;
+    }
+
+    // 狀況三：正常儲存
+    categories[editingCatIndex].name = newName;
+    categories[editingCatIndex].color = tempColor;
+    
+    isCreatingNew = false; // 成功儲存，解除新增鎖定
+    saveCategories();
+    closeSettingsModal();
 }
 
-/* 新增：正方形圓角刪除按鈕 */
-.btn-square-delete {
-    width: 48px;
-    height: 48px;
-    background: #ffebee;
-    color: #d32f2f;
-    border: 1px solid #ffcdd2;
-    border-radius: 12px; /* 圓角矩形 */
-    font-size: 1.4rem;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: transform 0.1s;
-    flex-shrink: 0; /* 防止被擠壓 */
+function addNewCategory() {
+    categories.push({ name: "新項目", color: "white" });
+    saveCategories(); 
+    
+    isCreatingNew = true; // 鎖定：這是新增模式
+    
+    // 開啟最後一個 (即剛新增的那個)
+    setTimeout(() => openSettingsModal(categories.length - 1), 100);
 }
 
-.btn-square-delete:active {
-    background: #ef9a9a;
-    color: white;
-    transform: scale(0.95);
-}
-.btn-round-delete:active {
-    transform: scale(0.9);
-    background: #ffcdd2;
-}
-.input-wrapper {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
+function closeSettingsModal() {
+    // 如果還在「新增模式」就按了關閉 (代表使用者反悔了，或者沒按儲存)
+    if (isCreatingNew) {
+        categories.splice(editingCatIndex, 1); // 刪除那個暫存的「新項目」
+        saveCategories();
+        isCreatingNew = false; // 重置
+    }
+    
+    settingsModal.style.display = 'none';
 }
 
-/* --- style.css 新增區 --- */
-
-/* 刪除區塊樣式 */
-.delete-zone {
-    width: 100%;
-    height: 60px;
-    border: 2px dashed #ff5252;
-    background-color: #ffebee;
-    color: #d32f2f;
-    border-radius: 15px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    margin-bottom: 20px;
-    box-sizing: border-box;
-    transition: all 0.2s;
+function saveCategories(render = true) {
+    localStorage.setItem('myCategoriesV2', JSON.stringify(categories));
+    if(render) renderCategories();
 }
 
-/* 當按鈕拖曳到刪除區上方時的特效 */
-.delete-zone-hover {
-    background-color: #ffcdd2;
-    transform: scale(1.02);
-    border-color: red;
-    box-shadow: 0 4px 10px rgba(255, 0, 0, 0.2);
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const btn = document.getElementById('btnToggleEdit');
+    const delZone = document.getElementById('deleteZone'); // 取得刪除區元素
+    
+    if (isEditMode) {
+        btn.style.background = "#fff9c4"; 
+        categoryGrid.classList.add('edit-mode');
+        delZone.style.display = 'flex'; // 顯示刪除區
+    } else {
+        btn.style.background = "white";
+        categoryGrid.classList.remove('edit-mode');
+        delZone.style.display = 'none'; // 隱藏刪除區
+    }
+    // 重新渲染以套用新的 Sortable 設定
+    renderCategories();
 }
 
-.tab-content { display: none; }
-.tab-content.active { display: block; }
+// --- 背景設定 ---
+function openBgSettings() {
+    const bgGrid = document.getElementById('bgGrid');
+    renderColorGrid(bgGrid, (val) => {
+        bgStyle = val;
+        document.body.style.background = bgStyle;
+        localStorage.setItem('myBgStyle', bgStyle);
+        closeBgModal();
+    }, bgStyle);
+    document.getElementById('bgModal').style.display = 'flex';
+}
+function closeBgModal() { document.getElementById('bgModal').style.display = 'none'; }
 
-/* --- style.css 新增區 --- */
+// --- 記帳輸入 ---
 
-/* 日期選擇器美化 */
-.date-range-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    padding: 10px 15px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+function openEditRecord(id) {
+    const r = records.find(x => x.id === id); 
+    if (!r) return;
+    
+    editingRecordId = id; 
+    currentCategoryName = r.pureCategory || r.category.split(' (')[0]; 
+    currentAmountStr = r.amount.toString();
+    const match = r.category.match(/\((.*)\)/); 
+    noteInput.value = match ? match[1] : '';
+
+    // 從 ID (時間戳記) 還原日期
+    const d = new Date(id);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    recordDateInput.value = `${yyyy}-${mm}-${dd}`;
+    updateDateDisplay(); // 更新顯示文字
+
+    document.getElementById('modalTitle').textContent = "修改紀錄";
+    btnConfirmRecord.textContent = "儲存"; 
+    btnDeleteRecord.style.display = 'block'; 
+    btnConfirmRecord.style.gridColumn = "span 1"; 
+    
+    updateDisplay(); 
+    modal.style.display = 'flex';
 }
 
-.date-input {
-    border: 1px solid #eee;
-    background: #f9f9f9;
-    padding: 8px;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    color: #555;
-    font-family: inherit;
-    width: 45%; /* 讓兩個輸入框各佔一半 */
-    box-sizing: border-box;
+function closeModal() { modal.style.display = 'none'; }
+function pressNum(k) {
+    if(k==='DEL') currentAmountStr = currentAmountStr.length>1 ? currentAmountStr.slice(0,-1) : '0';
+    else if(k==='00') { if(currentAmountStr!=='0' && currentAmountStr.length<8) currentAmountStr+='00'; }
+    else { if(currentAmountStr.length<9) currentAmountStr = currentAmountStr==='0' ? k : currentAmountStr+k; }
+    updateDisplay();
+}
+function updateDisplay() { displayEl.textContent = parseInt(currentAmountStr).toLocaleString(); }
+
+function confirmRecord() {
+    const amount = parseInt(currentAmountStr);
+    if (amount === 0) return alert("金額不能為 0");
+    const note = noteInput.value.trim();
+    const finalCat = note ? `${currentCategoryName} (${note})` : currentCategoryName;
+    
+    // 取得選定的日期 (YYYY-MM-DD)
+    const dateStr = recordDateInput.value;
+    // 建立日期物件 (注意：這裡直接 new Date(dateStr) 會是 UTC+0 的 0點，我們需要手動組合)
+    // 為了安全起見，我們手動解析字串來確保是「當地時間」的該日
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d); // 月份是 0-11
+    
+    let finalTime;
+    
+    if (editingRecordId) {
+        // 編輯：保留原本的 時:分:秒
+        const oldDate = new Date(editingRecordId);
+        dateObj.setHours(oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
+        finalTime = dateObj.getTime();
+    } else {
+        // 新增：使用當下時間的 時:分:秒
+        const now = new Date();
+        // 如果使用者選的是今天，就用現在時間；如果選的是過去/未來，也用現在時間當作那個日期的時間點 (方便排序)
+        dateObj.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+        finalTime = dateObj.getTime();
+    }
+    
+    // 顯示字串
+    const timeDisplay = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+    const timestampStr = dateObj.toLocaleString(); // 這會存成本地格式字串
+
+    if (editingRecordId) {
+        const idx = records.findIndex(x => x.id === editingRecordId);
+        if (idx !== -1) { 
+            records[idx].id = finalTime;
+            records[idx].amount = amount; 
+            records[idx].category = finalCat;
+            records[idx].timestamp = timestampStr;
+            records[idx].timeDisplay = timeDisplay;
+        }
+    } else {
+        records.unshift({ 
+            id: finalTime, 
+            timestamp: timestampStr, 
+            timeDisplay: timeDisplay, 
+            category: finalCat, 
+            pureCategory: currentCategoryName, 
+            amount: amount 
+        });
+    }
+    
+    saveRecords(); 
+    closeModal();
 }
 
-/* 快捷按鈕區 */
-.shortcut-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
+function deleteCurrentRecord() {
+    if(confirm("刪除此筆紀錄？")) { records = records.filter(x => x.id !== editingRecordId); saveRecords(); closeModal(); }
 }
 
-.shortcut-btn {
-    background: rgba(255,255,255,0.6);
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 8px 2px;
-    font-size: 0.8rem;
-    color: #666;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.shortcut-btn:active {
-    background: #e0f7fa;
-    color: #00796b;
-    border-color: #80cbc4;
+// --- 系統 ---
+function getFormattedDate(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
 }
 
-/* 圖表容器 */
-.chart-wrapper {
-    background: white;
-    border-radius: 20px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    height: 300px; /* 限制高度 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+function renderHome() {
+    const list = document.getElementById('homeList');
+    const totalEl = document.getElementById('todayTotal');
+    const todayStr = getFormattedDate(Date.now());
+    list.innerHTML = '';
+    let sum = 0;
+    records.filter(r => getFormattedDate(r.id) === todayStr).forEach(r => {
+        sum += r.amount;
+        list.appendChild(createLogItem(r));
+    });
+    totalEl.textContent = sum.toLocaleString();
 }
 
-/* 自訂圖例列表 */
-.legend-list {
-    background: white;
-    border-radius: 20px;
-    padding: 15px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+function renderHistory() {
+    const container = document.getElementById('historyListContainer');
+    container.innerHTML = '';
+    if (records.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;margin-top:20px;">無資料</div>'; return; }
+    records.sort((a,b) => b.id - a.id);
+    let lastDate = ''; let ul = null;
+    records.forEach(r => {
+        const dStr = getFormattedDate(r.id);
+        if (dStr !== lastDate) {
+            const daySum = records.filter(x => getFormattedDate(x.id) === dStr).reduce((a,b)=>a+b.amount,0);
+            const header = document.createElement('div');
+            header.className = 'history-date-header';
+            header.innerHTML = `<span>📅 ${dStr}</span><span class="daily-total">$${daySum.toLocaleString()}</span>`;
+            container.appendChild(header);
+            ul = document.createElement('ul'); ul.className = 'log-list'; ul.style.background = 'white'; container.appendChild(ul);
+            lastDate = dStr;
+        }
+        if (ul) ul.appendChild(createLogItem(r));
+    });
 }
 
-.legend-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px dashed #eee;
+function initChartPage() {
+    // 預設選擇「近一周」
+    setDateRange('week');
+    
+    // 綁定日期改變事件，當用戶手動改日期時，重新畫圖
+    document.getElementById('startDate').addEventListener('change', updateChart);
+    document.getElementById('endDate').addEventListener('change', updateChart);
 }
-.legend-item:last-child { border-bottom: none; }
 
-.legend-info { display: flex; align-items: center; gap: 10px; }
-.legend-color { width: 12px; height: 12px; border-radius: 50%; display: block; }
-.legend-name { font-size: 0.95rem; color: #444; font-weight: 500; }
-.legend-amount { font-weight: bold; color: #333; }
-.legend-percent { font-size: 0.8rem; color: #999; margin-left: 5px; }
+function setDateRange(type) {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date(); // 預設就是今天
+
+    if (type === 'week') {
+        // 近一周 (包含今天往前推6天，共7天)
+        start.setDate(today.getDate() - 6);
+    } else if (type === 'month') {
+        // 近一月 (30天)
+        start.setDate(today.getDate() - 29);
+    } else if (type === 'thisMonth') {
+        // 本月份 (1號 ~ 今天)
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else if (type === 'thisWeek') {
+        // 本周 (周一 ~ 今天)
+        // getDay(): 0是周日, 1是周一...
+        // 如果今天是周日(0)，要往前推6天到上周一
+        // 如果今天是周一(1)，往前推0天
+        let day = today.getDay(); 
+        let diff = day === 0 ? 6 : day - 1; 
+        start.setDate(today.getDate() - diff);
+    }
+
+    // 將日期格式化為 YYYY-MM-DD 填入 input
+    document.getElementById('startDate').value = formatDateInput(start);
+    document.getElementById('endDate').value = formatDateInput(end);
+
+    // 更新圖表
+    updateChart();
+}
+
+function formatDateInput(date) {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function updateChart() {
+    const startStr = document.getElementById('startDate').value;
+    const endStr = document.getElementById('endDate').value;
+    
+    if (!startStr || !endStr) return;
+
+    // 將字串轉為時間戳記進行比較 (00:00:00 ~ 23:59:59)
+    const startTime = new Date(startStr).setHours(0,0,0,0);
+    const endTime = new Date(endStr).setHours(23,59,59,999);
+
+    // 1. 篩選範圍內的資料
+    const filteredRecords = records.filter(r => {
+        return r.id >= startTime && r.id <= endTime;
+    });
+
+    // 2. 統計各分類金額 (合併備註)
+    const stats = {};
+    let totalSum = 0;
+
+    filteredRecords.forEach(r => {
+        // 使用 pureCategory (已在之前的程式碼中儲存，去除了括號備註)
+        // 如果舊資料沒有 pureCategory，則用 split 處理
+        const catName = r.pureCategory || r.category.split(' (')[0];
+        
+        if (!stats[catName]) stats[catName] = 0;
+        stats[catName] += r.amount;
+        totalSum += r.amount;
+    });
+
+    // 3. 轉為陣列並排序 (金額大到小)
+    const sortedStats = Object.keys(stats)
+        .map(key => ({ name: key, amount: stats[key] }))
+        .sort((a, b) => b.amount - a.amount);
+
+    // 4. 準備繪圖
+    renderChart(sortedStats, totalSum);
+    renderLegend(sortedStats, totalSum);
+}
+
+function renderChart(data, totalSum) {
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+
+    // 使用新的輔助函式來產生顏色陣列
+    const bgColors = data.map((item, index) => getChartColor(item.name, index));
+
+    if (expenseChart) expenseChart.destroy();
+
+    if (data.length === 0) return; 
+
+    expenseChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.map(d => d.name),
+            datasets: [{
+                data: data.map(d => d.amount),
+                backgroundColor: bgColors,
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            let value = context.raw;
+                            let percent = Math.round((value / totalSum) * 100) + '%';
+                            return `${label}: $${value.toLocaleString()} (${percent})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderLegend(data, totalSum) {
+    const container = document.getElementById('chartLegend');
+    container.innerHTML = '';
+
+    if (data.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;">此區間無支出資料</div>';
+        return;
+    }
+
+    data.forEach((item, index) => {
+        const percent = Math.round((item.amount / totalSum) * 100);
+        
+        // 使用同一個邏輯取得顏色，確保圖例跟圓餅圖顏色一致
+        const color = getChartColor(item.name, index);
+
+        const div = document.createElement('div');
+        div.className = 'legend-item';
+        div.innerHTML = `
+            <div class="legend-info">
+                <span class="legend-color" style="background:${color}"></span>
+                <span class="legend-name">${item.name}</span>
+            </div>
+            <div>
+                <span class="legend-amount">$${item.amount.toLocaleString()}</span>
+                <span class="legend-percent">${percent}%</span>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function createLogItem(r) {
+    const li = document.createElement('li'); li.className = 'log-item'; li.onclick = () => openEditRecord(r.id);
+    li.innerHTML = `<div class="log-info"><span class="log-time">${r.timeDisplay}</span><span class="log-cat">${r.category}</span></div><span class="log-money">$${r.amount}</span>`;
+    return li;
+}
+
+function saveRecords() {
+    localStorage.setItem('myMoneyRecordsV4', JSON.stringify(records));
+    if(document.getElementById('tab-home').style.display !== 'none') renderHome(); else renderHistory();
+}
+
+function switchTab(t) {
+    // 1. 隱藏所有分頁，移除所有按鈕活性
+    document.querySelectorAll('.tab-content').forEach(e => e.style.display = 'none');
+    document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+    
+    // 2. 顯示目標分頁，啟用目標按鈕
+    document.getElementById(`tab-${t}`).style.display = 'block';
+    document.getElementById(`nav-${t}`).classList.add('active');
+    
+    // 3. 根據分頁重新渲染資料
+    if (t === 'home') {
+        renderHome();
+    } else if (t === 'history') {
+        renderHistory();
+    } else if (t === 'chart') {
+        // 【關鍵修正】
+        // 切換到分析頁時，立刻重設為「近一周」並刷新圖表
+        // setDateRange 內部會呼叫 updateChart()，所以資料會是最新的
+        setDateRange('week');
+    }
+}
+
+function exportCSV() {
+    if(records.length===0) return alert("無資料");
+    let csv = "data:text/csv;charset=utf-8,\uFEFF時間,項目,金額\n";
+    records.forEach(r => csv += `${r.timestamp},${r.category},${r.amount}\n`);
+    const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `money_log_${Date.now()}.csv`;
+    document.body.appendChild(link); link.click();
+}
+
+function clearAllData() { if(confirm("清空所有資料？")) { records=[]; saveRecords(); } }
+
+window.onclick = function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        // 判斷目前點到的是哪個視窗的背景
+        if (e.target.id === 'settingsModal') {
+            // 關鍵！必須呼叫這個函式，才會執行「新增未存檔則刪除」的邏輯
+            closeSettingsModal(); 
+        } else if (e.target.id === 'bgModal') {
+            closeBgModal();
+        } else {
+            // 預設關閉記帳輸入視窗
+            closeModal(); 
+        }
+    }
+}
+
+// --- script.js 最下面新增 ---
+// 1. 備份功能 (存檔)
+async function backupData() {
+    // A. 打包資料
+    const backupObj = {
+        version: "1.0", 
+        exportDate: new Date().toLocaleString(),
+        records: records,
+        categories: categories,
+        bgStyle: bgStyle
+    };
+
+    const jsonString = JSON.stringify(backupObj, null, 2);
+    const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
+    const file = new File([jsonString], fileName, { type: "application/json" });
+
+    // B. 判斷裝置與環境
+    // 檢查是否為手機 (簡單判斷 userAgent)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // C. 分流處理
+    if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // --- 手機模式：嘗試呼叫分享選單 (Line/存到檔案) ---
+        try {
+            await navigator.share({
+                files: [file],
+                title: '記帳備份',
+                text: '這是我的記帳備份檔'
+            });
+        } catch (err) {
+            // 如果使用者按取消 (AbortError)，就不做反應
+            // 如果是其他錯誤 (例如瀏覽器不支援)，則切換成下載模式
+            if (err.name !== 'AbortError') {
+                console.warn("分享失敗，改為直接下載", err);
+                downloadFile(file, fileName);
+            }
+        }
+    } else {
+        // --- 電腦模式：直接下載檔案 ---
+        downloadFile(file, fileName);
+    }
+}
+
+// 輔助：下載檔案 (電腦版必備)
+function downloadFile(fileBlob, fileName) {
+    // 建立一個隱藏的下載連結
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(fileBlob);
+    link.download = fileName;
+    
+    // 必須要把連結加入到網頁中，Firefox 等瀏覽器才能觸發點擊
+    document.body.appendChild(link);
+    link.click(); // 模擬點擊
+    
+    // 點完後移除
+    document.body.removeChild(link);
+}
+
+// 2. 還原功能 (讀檔) - 觸發選檔案的視窗
+function triggerRestore() {
+    document.getElementById('restoreInput').click();
+}
+
+// 3. 實際執行還原
+function restoreData(inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+
+            if (!data.records || !data.categories) {
+                return alert("這不是正確的備份檔案！");
+            }
+
+            if (!confirm(`確定要還原備份嗎？\n(備份日期: ${data.exportDate || '未知'})\n\n⚠️ 這將會覆蓋現有的所有資料！`)) {
+                inputElement.value = ''; 
+                return;
+            }
+
+            records = data.records;
+            categories = data.categories;
+            if (data.bgStyle) bgStyle = data.bgStyle;
+
+            saveRecords();
+            saveCategories(); 
+            localStorage.setItem('myBgStyle', bgStyle);
+            document.body.style.background = bgStyle;
+            
+            alert("還原成功！頁面將重新整理。");
+            location.reload();
+
+        } catch (err) {
+            alert("檔案讀取失敗，格式可能錯誤。");
+        }
+    };
+    reader.readAsText(file);
+}
+
+// 2. 新增：開啟日期選擇器
+function openDatePicker() {
+    if (recordDateInput.showPicker) {
+        recordDateInput.showPicker();
+    } else {
+        recordDateInput.click();
+    }
+}
+
+
+function openInputModal(catName) {
+    editingRecordId = null; 
+    currentCategoryName = catName; 
+    currentAmountStr = '0'; 
+    noteInput.value = '';
+    
+    // 【修正】使用當地時間，不會再變成昨天了
+    recordDateInput.value = getLocalTodayString();
+    updateDateDisplay(); // 初始化顯示文字
+
+    document.getElementById('modalTitle').textContent = catName;
+    btnConfirmRecord.textContent = "確認"; 
+    btnDeleteRecord.style.display = 'none'; 
+    btnConfirmRecord.style.gridColumn = "span 2"; 
+    
+    updateDisplay(); 
+    modal.style.display = 'flex';
+}
+
+function updateDateDisplay() {
+    const today = getLocalTodayString();
+    const selected = recordDateInput.value;
+    
+    // 更新文字
+    dateDisplayText.textContent = selected;
+    
+    // 如果選的不是今天，按鈕與文字變色提醒
+    if (selected !== today) {
+        btnDateTrigger.style.background = "#fff9c4"; 
+        btnDateTrigger.style.border = "1px solid #fbc02d";
+        dateDisplayText.style.color = "#E65100"; // 橘色文字提醒
+    } else {
+        btnDateTrigger.style.background = "#fff";
+        btnDateTrigger.style.border = "1px solid #eee";
+        dateDisplayText.style.color = "#555"; // 正常顏色
+    }
+}
+
+// 3. 新增：日期改變時的視覺回饋
+function updateDateButtonStatus() {
+    const today = new Date().toISOString().split('T')[0];
+    const selected = recordDateInput.value;
+    
+    // 如果選的不是今天，按鈕變黃色提醒使用者
+    if (selected !== today) {
+        btnDateTrigger.style.background = "#fff9c4"; 
+        btnDateTrigger.style.border = "1px solid #fbc02d";
+    } else {
+        btnDateTrigger.style.background = "#fff";
+        btnDateTrigger.style.border = "1px solid #eee";
+    }
+}
+// --- script.js 最尾端新增 ---
+
+// 🧪 測試用：生成假資料
+function generateFakeData() {
+    if (!confirm("確定要生成 50 筆隨機測試資料嗎？")) return;
+
+    const now = new Date();
+    // 產生 50 筆
+    for (let i = 0; i < 50; i++) {
+        // 隨機天數 (0 ~ 30 天前)
+        const daysBack = Math.floor(Math.random() * 30);
+        const date = new Date(now);
+        date.setDate(now.getDate() - daysBack);
+        
+        // 隨機小時與分鐘
+        date.setHours(Math.floor(Math.random() * 24));
+        date.setMinutes(Math.floor(Math.random() * 60));
+
+        // 隨機分類
+        const randomCat = categories[Math.floor(Math.random() * categories.length)];
+        
+        // 隨機金額 (10 ~ 500 元)
+        const randomAmount = Math.floor(Math.random() * 49) * 10 + 10;
+
+        const newRecord = {
+            id: date.getTime() + i, // 加上 i 避免 ID 重複
+            timestamp: date.toLocaleString(),
+            timeDisplay: `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`,
+            category: randomCat.name,
+            pureCategory: randomCat.name, // 確保圖表統計抓得到
+            amount: randomAmount
+        };
+        
+        records.push(newRecord);
+    }
+
+    saveRecords();
+    alert("已成功生成 50 筆測試資料！請去圖表頁面查看。");
+}
