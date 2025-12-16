@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>隨身記帳 V5 (分離版)</title>
-    
+    <title>隨身記帳 V6 (自定義版)</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 </head>
 <body>
 
@@ -17,43 +18,33 @@
             <div class="total-amount">$<span id="todayTotal">0</span></div>
         </div>
 
-        <div class="category-grid">
-            <button class="cat-btn" onclick="openModal('早餐')">早餐</button>
-            <button class="cat-btn" onclick="openModal('午餐')">午餐</button>
-            <button class="cat-btn" onclick="openModal('晚餐')">晚餐</button>
-            <button class="cat-btn" onclick="openModal('咖啡')">咖啡</button>
-            <button class="cat-btn" onclick="openModal('飲料')">飲料</button>
-            <button class="cat-btn" onclick="openModal('點心')">點心</button>
-            <button class="cat-btn special" onclick="openModal('交通')">交通</button>
-            <button class="cat-btn special" onclick="openModal('雜支')">雜支</button>
-            <button class="cat-btn special" onclick="openModal('其他')">其他</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div class="section-title" style="margin:0; border:none; padding:0;">類別選擇</div>
+            <button id="btnToggleEdit" class="btn-tool" onclick="toggleEditMode()">⚙️ 自定義按鈕</button>
         </div>
 
+        <div class="category-grid" id="categoryGrid"></div>
+
         <div class="section-title">今日明細</div>
-        <ul class="log-list" id="homeList">
-            </ul>
+        <ul class="log-list" id="homeList"></ul>
     </div>
 
     <div id="tab-history" class="tab-content">
-        <div class="section-title" style="margin-top:0;">歷史紀錄 (依日期分組)</div>
+        <div class="section-title" style="margin-top:0;">歷史紀錄</div>
         <div class="history-actions">
              <button onclick="exportCSV()" class="btn-tool">📥 下載 CSV</button>
              <button onclick="clearAllData()" class="btn-tool btn-tool-danger">🗑️ 清空</button>
         </div>
-        <div id="historyListContainer">
-            </div>
+        <div id="historyListContainer"></div>
     </div>
-
 </div>
 
 <nav class="bottom-nav">
     <button class="nav-btn active" onclick="switchTab('home')" id="nav-home">
-        <span class="nav-icon">✎</span>
-        <span>記帳</span>
+        <span class="nav-icon">✎</span><span>記帳</span>
     </button>
     <button class="nav-btn" onclick="switchTab('history')" id="nav-history">
-        <span class="nav-icon">🕒</span>
-        <span>歷史</span>
+        <span class="nav-icon">🕒</span><span>歷史</span>
     </button>
 </nav>
 
@@ -87,6 +78,5 @@
 </div>
 
 <script src="script.js"></script>
-
 </body>
 </html>
