@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>貪食蛇測試版</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", Roboto, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            touch-action: none; /* 防止手機操作時滾動畫面 */
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* 頂部計分板 */
+        .score-board {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #555;
+            font-size: 1.1rem;
+        }
+        .score-val { color: #2e7d32; }
+
+        /* 遊戲畫布 */
+        canvas {
+            background-color: #222;
+            border-radius: 8px;
+            display: block;
+            margin: 0 auto;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* 狀態訊息 */
+        .status-msg {
+            margin-top: 10px;
+            height: 20px;
+            color: #d32f2f;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* 虛擬控制器 (十字鍵) */
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 240px; /* 限制控制器寬度 */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn-ctrl {
+            background-color: #e0e0e0;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 0;
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #bdbdbd;
+            transition: transform 0.1s, box-shadow 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            aspect-ratio: 1; /* 正方形 */
+        }
+
+        .btn-ctrl:active {
+            transform: translateY(4px);
+            box-shadow: none;
+            background-color: #d5d5d5;
+        }
+
+        /* 按鈕位置安排 */
+        .btn-up { grid-column: 2; grid-row: 1; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+        
+        /* 開始/暫停按鈕 */
+        .btn-action {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);
+            cursor: pointer;
+        }
+        .btn-action:active { transform: scale(0.95); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="score-board">
+        <span>分數: <span id="score" class="score-val">0</span></span>
+        <span>最高: <span id="highScore">0</span></span>
+    </div>
+
+    <canvas id="gameCanvas" width="300" height="300"></canvas>
+    
+    <div class="status-msg" id="statusMsg">點擊開始遊戲</div>
+
+    <div class="controls">
+        <button class="btn-ctrl btn-up" onclick="changeDirection('UP')">▲</button>
+        <button class="btn-ctrl btn-left" onclick="changeDirection('LEFT')">◀</button>
+        <button class="btn-ctrl btn-down" onclick="changeDirection('DOWN')">▼</button>
+        <button class="btn-ctrl btn-right" onclick="changeDirection('RIGHT')">▶</button>
+    </div>
+
+    <button class="btn-action" onclick="toggleGame()" id="actionBtn">開始遊戲</button>
+</div>
+
+<script>
+    // --- 遊戲設定 ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 網格大小
+    const gridSize = 15;
+    const tileCount = canvas.width / gridSize; // 20x20 的格子
+
+    // 遊戲變數
+    let velocityX = 0;
+    let velocityY = 0;
+    let snake = [];
+    let food = { x: 15, y: 15 };
+    let score = 0;
+    let highScore = localStorage.getItem('snakeHighScore') || 0;
+    let gameInterval;
+    let isRunning = false;
+    let isGameOver = false;
+
+    // UI 元素
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const statusMsg = document.getElementById('statusMsg');
+    const actionBtn = document.getElementById('actionBtn');
+
+    // 初始化顯示
+    highScoreEl.textContent = highScore;
+    resetGameData();
+    drawGame(); // 畫出初始畫面
+
+    // --- 核心邏輯 ---
+
+    function toggleGame() {
+        if (isGameOver) {
+            resetGameData();
+            startGame();
+        } else if (isRunning) {
+            pauseGame();
+        } else {
+            startGame();
+        }
+    }
+
+    function startGame() {
+        isRunning = true;
+        isGameOver = false;
+        actionBtn.textContent = "暫停";
+        statusMsg.textContent = "遊戲進行中...";
+        
+        // 如果剛開始，給個初始速度
+        if (velocityX === 0 && velocityY === 0) {
+            velocityX = 1; velocityY = 0;
+        }
+
+        // 設定遊戲迴圈 (每秒10幀)
+        gameInterval = setInterval(gameLoop, 100); 
+    }
+
+    function pauseGame() {
+        isRunning = false;
+        actionBtn.textContent = "繼續";
+        statusMsg.textContent = "遊戲暫停";
+        clearInterval(gameInterval);
+    }
+
+    function resetGameData() {
+        snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}]; // 初始蛇身
+        velocityX = 0;
+        velocityY = 0;
+        score = 0;
+        scoreEl.textContent = 0;
+        isGameOver = false;
+        placeFood();
+    }
+
+    function gameLoop() {
+        update();
+        drawGame();
+    }
+
+    function update() {
+        // 移動蛇頭
+        const head = { x: snake[0].x + velocityX, y: snake[0].y + velocityY };
+
+        // 1. 撞牆檢測
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+            gameOver();
+            return;
+        }
+
+        // 2. 撞身體檢測
+        for (let i = 0; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                gameOver();
+                return;
+            }
+        }
+
+        snake.unshift(head); // 加入新頭部
+
+        // 3. 吃食物
+        if (head.x === food.x && head.y === food.y) {
+            score += 10;
+            scoreEl.textContent = score;
+            placeFood();
+            // 不移除尾巴，蛇變長
+        } else {
+            snake.pop(); // 移除尾巴，維持長度
+        }
+    }
+
+    function drawGame() {
+        // 清空背景
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 畫蛇
+        ctx.fillStyle = '#4caf50'; // 蛇的顏色
+        for (let i = 0; i < snake.length; i++) {
+            // 蛇頭顏色深一點
+            if (i === 0) ctx.fillStyle = '#66bb6a'; 
+            else ctx.fillStyle = '#4caf50';
+            
+            ctx.fillRect(snake[i].x * gridSize, snake[i].y * gridSize, gridSize - 2, gridSize - 2);
+        }
+
+        // 畫食物
+        ctx.fillStyle = '#ff5252';
+        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+    }
+
+    function placeFood() {
+        food.x = Math.floor(Math.random() * tileCount);
+        food.y = Math.floor(Math.random() * tileCount);
+        
+        // 確保食物不會生在蛇身上
+        for(let part of snake) {
+            if(part.x === food.x && part.y === food.y) {
+                placeFood();
+                break;
+            }
+        }
+    }
+
+    function gameOver() {
+        clearInterval(gameInterval);
+        isRunning = false;
+        isGameOver = true;
+        statusMsg.textContent = "遊戲結束！";
+        actionBtn.textContent = "重新開始";
+
+        // 更新最高分
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('snakeHighScore', highScore);
+            highScoreEl.textContent = highScore;
+        }
+    }
+
+    // --- 控制邏輯 ---
+    
+    // 鍵盤控制
+    document.addEventListener('keydown', keyPush);
+    function keyPush(evt) {
+        if(!isRunning && !isGameOver) { 
+            // 如果還沒開始，按方向鍵也可以啟動
+            startGame(); 
+        }
+        
+        switch(evt.key) {
+            case 'ArrowLeft': changeDirection('LEFT'); break;
+            case 'ArrowUp': changeDirection('UP'); break;
+            case 'ArrowRight': changeDirection('RIGHT'); break;
+            case 'ArrowDown': changeDirection('DOWN'); break;
+        }
+    }
+
+    // 按鈕控制
+    function changeDirection(dir) {
+        // 防止原地掉頭 (例如正在往右，不能直接往左)
+        if (dir === 'LEFT' && velocityX === 1) return;
+        if (dir === 'UP' && velocityY === 1) return;
+        if (dir === 'RIGHT' && velocityX === -1) return;
+        if (dir === 'DOWN' && velocityY === -1) return;
+
+        // 如果還沒開始，按按鈕也可以啟動
+        if (!isRunning && !isGameOver && (velocityX === 0 && velocityY === 0)) {
+            startGame();
+        }
+
+        switch(dir) {
+            case 'LEFT': velocityX = -1; velocityY = 0; break;
+            case 'UP': velocityX = 0; velocityY = -1; break;
+            case 'RIGHT': velocityX = 1; velocityY = 0; break;
+            case 'DOWN': velocityX = 0; velocityY = 1; break;
+        }
+    }
+
+</script>
+
+</body>
+</html>
