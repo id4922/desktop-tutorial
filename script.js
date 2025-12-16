@@ -609,3 +609,135 @@ window.onclick = function(e) {
         }
     }
 }
+
+// --- script.js 最下面新增 ---
+
+// 1. 備份功能 (存檔)
+async function backupData() {
+    // 把目前的 紀錄(records)、分類(categories)、背景(bgStyle) 全部打包起來
+    const backupObj = {
+        version: "1.0", 
+        exportDate: new Date().toLocaleString(),
+        records: records,
+        categories: categories,
+        bgStyle: bgStyle
+    };
+
+    // 轉成文字檔內容
+    const jsonString = JSON.stringify(backupObj, null, 2);
+    const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
+    const file = new File([jsonString], fileName, { type: "application/json" });
+
+    // 判斷是用手機還是電腦
+    // 如果是手機，嘗試呼叫系統的「分享」選單 (可以傳到 Line 或存到檔案)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: '記帳備份',
+                text: '這是我的記帳備份檔'
+            });
+        } catch (err) {
+            // 如果使用者按取消，就不做任何事
+            console.log("分享取消");
+        }
+    } else {
+        // 如果是電腦，或手機不支援分享，就直接下載檔案
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(file);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+// 2. 還原功能 (讀檔) - 觸發選檔案的視窗
+function triggerRestore() {
+    document.getElementById('restoreInput').click();
+}
+
+// 3. 實際執行還原
+function restoreData(inputElement) {
+    const file = inputElement.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    
+    // 當檔案讀取完成後，執行以下動作
+    reader.onload = function(e) {
+        try {
+            // 把文字轉回資料
+            const data = JSON.parse(e.target.result);
+
+            // 簡單檢查一下是不是正確的備份檔
+            if (!data.records || !data.categories) {
+                return alert("這不是正確的備份檔案！");
+            }
+
+            if (!confirm(`確定要還原備份嗎？\n(備份日期: ${data.exportDate || '未知'})\n\n⚠️ 這將會覆蓋現有的所有資料！`)) {
+                inputElement.value = ''; // 如果取消，清空選擇
+                return;
+            }
+
+            // 開始覆蓋資料
+            records = data.records;
+            categories = data.categories;
+            if (data.bgStyle) bgStyle = data.bgStyle;
+
+            // 儲存到手機記憶體 (localStorage)
+            saveRecords();
+            saveCategories(); 
+            localStorage.setItem('myBgStyle', bgStyle);
+            
+            alert("還原成功！頁面將重新整理。");
+            
+            // 重新整理頁面，讓資料生效
+            location.reload();
+
+        } catch (err) {
+            alert("檔案讀取失敗，格式可能錯誤。");
+        }
+    };
+    // 開始讀取文字檔
+    reader.readAsText(file);
+}
+// --- script.js 最尾端新增 ---
+
+// 🧪 測試用：生成假資料
+function generateFakeData() {
+    if (!confirm("確定要生成 50 筆隨機測試資料嗎？")) return;
+
+    const now = new Date();
+    // 產生 50 筆
+    for (let i = 0; i < 50; i++) {
+        // 隨機天數 (0 ~ 30 天前)
+        const daysBack = Math.floor(Math.random() * 30);
+        const date = new Date(now);
+        date.setDate(now.getDate() - daysBack);
+        
+        // 隨機小時與分鐘
+        date.setHours(Math.floor(Math.random() * 24));
+        date.setMinutes(Math.floor(Math.random() * 60));
+
+        // 隨機分類
+        const randomCat = categories[Math.floor(Math.random() * categories.length)];
+        
+        // 隨機金額 (10 ~ 500 元)
+        const randomAmount = Math.floor(Math.random() * 49) * 10 + 10;
+
+        const newRecord = {
+            id: date.getTime() + i, // 加上 i 避免 ID 重複
+            timestamp: date.toLocaleString(),
+            timeDisplay: `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`,
+            category: randomCat.name,
+            pureCategory: randomCat.name, // 確保圖表統計抓得到
+            amount: randomAmount
+        };
+        
+        records.push(newRecord);
+    }
+
+    saveRecords();
+    alert("已成功生成 50 筆測試資料！請去圖表頁面查看。");
+}
