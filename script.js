@@ -1,45 +1,33 @@
 // --- script.js ---
-
 let records = [];
 let categories = []; 
 let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
 
-// 擴充色票 (25色)
-const BTN_COLORS = [
+// --- 精選 16 色 (粉色系為主，按鈕與背景共用) ---
+const THEME_COLORS = [
+    // 1. 基礎淺色
     { val: "white", label: "簡約白" },
-    { val: "#f5f5f5", label: "淺灰" },
-    { val: "#fff9c4", label: "淡黃" },
-    { val: "#e0f2f1", label: "薄荷" },
-    { val: "#e3f2fd", label: "淡藍" },
-    { val: "linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)", label: "珊瑚紅" },
-    { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
-    { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
-    { val: "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", label: "夢幻紫" },
-    { val: "linear-gradient(135deg, #ff80ab 0%, #ff4081 100%)", label: "亮桃紅" },
-    { val: "linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%)", label: "暖橘" },
-    { val: "linear-gradient(135deg, #ffecb3 0%, #ffd54f 100%)", label: "金黃" },
-    { val: "linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%)", label: "奶茶色" },
-    { val: "linear-gradient(135deg, #ffab91 0%, #ff7043 100%)", label: "赤陶" },
-    { val: "#ff5252", label: "正紅" }, 
-    { val: "linear-gradient(135deg, #b2dfdb 0%, #4db6ac 100%)", label: "青綠" },
-    { val: "linear-gradient(135deg, #80cbc4 0%, #009688 100%)", label: "湖水綠" },
-    { val: "linear-gradient(135deg, #90caf9 0%, #42a5f5 100%)", label: "天空藍" },
-    { val: "linear-gradient(135deg, #9fa8da 0%, #5c6bc0 100%)", label: "靛青" },
-    { val: "#607d8b", label: "藍灰" },
-    { val: "#333333", label: "酷黑" }, 
-    { val: "linear-gradient(135deg, #b39ddb 0%, #7e57c2 100%)", label: "深紫" },
-    { val: "linear-gradient(135deg, #a5d6a7 0%, #66bb6a 100%)", label: "草綠" },
-    { val: "linear-gradient(to right, #ffafbd, #ffc3a0)", label: "夕陽" },
-    { val: "linear-gradient(120deg, #f093fb 0%, #f5576c 100%)", label: "熱情" }
-];
+    { val: "#fff9c4", label: "奶油黃" },
+    { val: "#e1bee7", label: "淡紫" },
+    { val: "#b2dfdb", label: "薄荷" },
 
-const BG_STYLES = [
-    "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)", 
-    "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", 
-    "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", 
-    "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)", 
-    "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", 
-    "#f0f2f5" 
+    // 2. 主打粉色系
+    { val: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)", label: "櫻花粉" },
+    { val: "linear-gradient(135deg, #f8bbd0 0%, #f48fb1 100%)", label: "甜心粉" },
+    { val: "linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%)", label: "珊瑚紅" },
+    { val: "linear-gradient(135deg, #ff80ab 0%, #ff4081 100%)", label: "亮桃紅" },
+
+    // 3. 暖色與對比
+    { val: "linear-gradient(135deg, #ffe0b2 0%, #ffb74d 100%)", label: "暖橘" },
+    { val: "linear-gradient(135deg, #d7ccc8 0%, #a1887f 100%)", label: "可可" },
+    { val: "#ff5252", label: "警示紅" },
+    { val: "#333333", label: "酷黑" },
+
+    // 4. 冷色系
+    { val: "linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%)", label: "天空藍" },
+    { val: "linear-gradient(135deg, #9fa8da 0%, #5c6bc0 100%)", label: "靛青" },
+    { val: "linear-gradient(135deg, #80cbc4 0%, #009688 100%)", label: "湖水綠" },
+    { val: "linear-gradient(135deg, #b39ddb 0%, #7e57c2 100%)", label: "深紫" }
 ];
 
 let currentAmountStr = '0'; 
@@ -95,7 +83,7 @@ function initElements() {
     bgModal = document.getElementById('bgModal');
 }
 
-// --- 按鈕渲染 ---
+// --- 渲染按鈕區 ---
 const categoryGrid = document.getElementById('categoryGrid');
 let sortableInstance = null;
 
@@ -107,16 +95,15 @@ function renderCategories() {
         btn.textContent = cat.name;
         btn.style.background = cat.color;
         
-        // 文字顏色對比處理
-        if (cat.color.includes("#333") || cat.color.includes("linear")) {
-            if (cat.color.includes("linear")) {
+        // 文字顏色對比
+        if (cat.color.includes("#333") || cat.color.includes("linear") || cat.color === "#ff5252") {
+            if (cat.color.includes("linear") || cat.color === "#ff5252") {
                  btn.style.color = "#444"; 
                  btn.style.fontWeight = "bold";
                  btn.style.textShadow = "0 1px 0 rgba(255,255,255,0.4)";
             }
             if (cat.color === "#333333") {
-                btn.style.color = "white";
-                btn.style.textShadow = "none";
+                btn.style.color = "white"; btn.style.textShadow = "none";
             }
         }
 
@@ -151,8 +138,26 @@ function setupSortable() {
     });
 }
 
-// --- 設定邏輯 ---
+// --- 設定邏輯 (16色共用) ---
 let tempColor = "white";
+
+// 產生色票的通用函式
+function renderColorGrid(targetGrid, onClickCallback, selectedColor) {
+    targetGrid.innerHTML = '';
+    THEME_COLORS.forEach(c => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.background = c.val;
+        if (c.val === selectedColor) swatch.classList.add('selected');
+        swatch.onclick = () => {
+            // 清除選取樣式
+            Array.from(targetGrid.children).forEach(child => child.classList.remove('selected'));
+            swatch.classList.add('selected');
+            onClickCallback(c.val);
+        };
+        targetGrid.appendChild(swatch);
+    });
+}
 
 function openSettingsModal(index) {
     editingCatIndex = index;
@@ -160,19 +165,8 @@ function openSettingsModal(index) {
     settingNameInput.value = cat.name;
     tempColor = cat.color || "white";
     
-    colorGrid.innerHTML = '';
-    BTN_COLORS.forEach(c => {
-        const swatch = document.createElement('div');
-        swatch.className = 'color-swatch';
-        swatch.style.background = c.val;
-        if (c.val === tempColor) swatch.classList.add('selected');
-        swatch.onclick = () => {
-            tempColor = c.val;
-            document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('selected'));
-            swatch.classList.add('selected');
-        };
-        colorGrid.appendChild(swatch);
-    });
+    // 渲染按鈕色票
+    renderColorGrid(colorGrid, (val) => { tempColor = val; }, tempColor);
     settingsModal.style.display = 'flex';
 }
 
@@ -221,19 +215,14 @@ function toggleEditMode() {
 // --- 背景設定 ---
 function openBgSettings() {
     const bgGrid = document.getElementById('bgGrid');
-    bgGrid.innerHTML = '';
-    BG_STYLES.forEach(style => {
-        const div = document.createElement('div');
-        div.className = 'color-swatch';
-        div.style.background = style;
-        div.onclick = () => {
-            bgStyle = style;
-            document.body.style.background = bgStyle;
-            localStorage.setItem('myBgStyle', bgStyle);
-            closeBgModal();
-        };
-        bgGrid.appendChild(div);
-    });
+    // 使用相同的 16 色渲染背景選單
+    renderColorGrid(bgGrid, (val) => {
+        bgStyle = val;
+        document.body.style.background = bgStyle;
+        localStorage.setItem('myBgStyle', bgStyle);
+        closeBgModal();
+    }, bgStyle);
+    
     document.getElementById('bgModal').style.display = 'flex';
 }
 function closeBgModal() { document.getElementById('bgModal').style.display = 'none'; }
