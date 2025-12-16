@@ -77,33 +77,34 @@ body {
 /* --- 修正版：防止圓圈被切到 --- */
 .settings-grid { 
     display: grid; 
-    /* 維持一列 5 個 */
+    /* 1. 維持一列 5 個 */
     grid-template-columns: repeat(5, 1fr); 
-    /* 間距縮小，讓圓圈變小一點 */
-    gap: 10px; 
+    
+    /* 2. 間距縮小到 8px，讓圓圈自然變小 */
+    gap: 8px; 
     
     margin: 15px 0; 
     max-height: 250px; 
     
-    /* 允許垂直捲動，禁止水平捲動 */
+    /* 3. 鎖定卷軸方向 */
     overflow-y: auto; 
     overflow-x: hidden;
     
-    /* 關鍵修正：加大內距！ */
-    /* 上下 10px，左右 15px (留更多空間給卷軸，防止被切) */
-    padding: 10px 15px; 
+    /* 4. 關鍵修改：右邊內距加到 24px！ */
+    /* 上下10px, 右24px(給卷軸), 左10px */
+    padding: 10px 24px 10px 10px; 
     
     width: 100%; 
     box-sizing: border-box;
 }
 
-/* 讓手機的卷軸細一點，比較好看 (選用) */
+/* 修正卷軸樣式，讓它不要太肥佔空間 (選用) */
 .settings-grid::-webkit-scrollbar {
-    width: 6px;
+    width: 5px; /* 改細 */
 }
 .settings-grid::-webkit-scrollbar-thumb {
     background-color: #ccc;
-    border-radius: 4px;
+    border-radius: 10px;
 }
 .settings-grid::-webkit-scrollbar-track {
     background: transparent;
