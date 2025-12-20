@@ -38,6 +38,7 @@ let isNewCategory = false;
 let trashSortable = null;
 let expenseChart = null;
 let recordDateInput, btnDateTrigger, dateDisplayText;
+let btnHeaderTrash; // 新增變數
 
 // --- 初始化 ---
 window.onload = function() {
@@ -79,17 +80,21 @@ function initElements() {
     displayEl = document.getElementById('displayNum');
     noteInput = document.getElementById('noteInput');
     btnConfirmRecord = document.getElementById('btnConfirmRecord');
-    btnDeleteRecord = document.getElementById('btnDeleteRecord');
     
-	recordDateInput = document.getElementById('recordDateInput');
+    // 移除舊的 btnDeleteRecord，改抓新的 header 垃圾桶
+    btnHeaderTrash = document.getElementById('btnHeaderTrash'); 
+    
+    recordDateInput = document.getElementById('recordDateInput');
     btnDateTrigger = document.getElementById('btnDateTrigger');
     dateDisplayText = document.getElementById('dateDisplayText');
-	
+    
     settingsModal = document.getElementById('settingsModal');
     settingNameInput = document.getElementById('settingNameInput');
     colorGrid = document.getElementById('colorGrid');
     bgModal = document.getElementById('bgModal');
 }
+
+
 function getLocalTodayString() {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -332,7 +337,6 @@ function openBgSettings() {
 function closeBgModal() { document.getElementById('bgModal').style.display = 'none'; }
 
 // --- 記帳輸入 ---
-
 function openEditRecord(id) {
     const r = records.find(x => x.id === id); 
     if (!r) return;
@@ -343,18 +347,21 @@ function openEditRecord(id) {
     const match = r.category.match(/\((.*)\)/); 
     noteInput.value = match ? match[1] : '';
 
-    // 從 ID (時間戳記) 還原日期
     const d = new Date(id);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     recordDateInput.value = `${yyyy}-${mm}-${dd}`;
-    updateDateDisplay(); // 更新顯示文字
+    updateDateDisplay(); 
 
+    // 更新標題
     document.getElementById('modalTitle').textContent = "修改紀錄";
+    
+    // 設定右下角按鈕文字
     btnConfirmRecord.textContent = "儲存"; 
-    btnDeleteRecord.style.display = 'block'; 
-    btnConfirmRecord.style.gridColumn = "span 1"; 
+    
+    // 【關鍵修改】顯示標題旁的垃圾桶
+    btnHeaderTrash.style.display = 'block'; 
     
     updateDisplay(); 
     modal.style.display = 'flex';
@@ -425,10 +432,14 @@ function confirmRecord() {
     closeModal();
 }
 
+// 刪除函式保持不變，但記得 HTML 中的 onclick 已經改指過來了
 function deleteCurrentRecord() {
-    if(confirm("刪除此筆紀錄？")) { records = records.filter(x => x.id !== editingRecordId); saveRecords(); closeModal(); }
+    if(confirm("確定要刪除此筆紀錄嗎？")) { 
+        records = records.filter(x => x.id !== editingRecordId); 
+        saveRecords(); 
+        closeModal(); 
+    }
 }
-
 // --- 系統 ---
 function getFormattedDate(ts) {
     const d = new Date(ts);
@@ -555,16 +566,61 @@ function updateChart() {
     renderChart(sortedStats, totalSum);
     renderLegend(sortedStats, totalSum);
 }
-
 function renderChart(data, totalSum) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
 
-    // 使用新的輔助函式來產生顏色陣列
+    // 顏色陣列
     const bgColors = data.map((item, index) => getChartColor(item.name, index));
 
     if (expenseChart) expenseChart.destroy();
 
+    // 如果沒資料，顯示空圖表
     if (data.length === 0) return; 
+
+    // --- 改良版：中間文字插件 ---
+    const centerTextPlugin = {
+        id: 'centerText',
+        beforeDraw: function(chart) {
+            const { width, height, ctx } = chart;
+
+            ctx.restore();
+            
+            // 1. 設定字體
+            const fontFamily = '-apple-system, BlinkMacSystemFont, "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif';
+            ctx.textAlign = "center"; 
+            ctx.textBaseline = "middle";
+
+            // 2. 繪製金額 (數字)
+            // 需求：數字要在正中間
+            const fontSizeAmt = (height / 100).toFixed(2); // 字稍微加大一點點 (原本 110)
+            ctx.font = `bold ${fontSizeAmt}em ${fontFamily}`;
+            ctx.fillStyle = "#333"; 
+
+            const text = "$" + totalSum.toLocaleString();
+            
+            // Y 座標：設定在正中心，微調 +2% 讓視覺重心更穩 (原本是 +10% 太低了)
+            const textY = height / 2 + (height * 0.02); 
+            
+            ctx.fillText(text, width / 2, textY);
+
+            // 3. 繪製標題 "總支出"
+            // 需求：靠上面一點，且不要離數字太遠
+            const fontSizeLabel = (height / 240).toFixed(2);
+            ctx.font = `${fontSizeLabel}em ${fontFamily}`;
+            ctx.fillStyle = "#999"; 
+            
+            const label = "總支出";
+            
+            // Y 座標：往上移 15% (原本是 12%)
+            // 數學解說：因為數字從 +10% 移到了 +2%，標題從 -12% 移到 -15%
+            // 兩者距離從 22% 縮減為 17%，成功達成「拉近距離」且「標題更上面」
+            const labelY = height / 2 - (height * 0.15);
+
+            ctx.fillText(label, width / 2, labelY);
+
+            ctx.save();
+        }
+    };
 
     expenseChart = new Chart(ctx, {
         type: 'doughnut',
@@ -577,10 +633,14 @@ function renderChart(data, totalSum) {
                 borderColor: '#ffffff'
             }]
         },
+        plugins: [centerTextPlugin], // 啟用插件
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '60%',
+            cutout: '75%', // 中間洞再大一點點，讓文字空間更舒服
+            layout: {
+                padding: 10
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -688,48 +748,44 @@ window.onclick = function(e) {
 }
 
 // --- script.js 最下面新增 ---
-// --- script.js backupData 修正版 ---
-
+// 1. 備份功能 (存檔)
 async function backupData() {
-    // 1. 取得當地的年月日時分秒 (解決跨日變昨天的問題)
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    
-    // 檔名改成：記帳備份_2025-01-12.json
-    const fileName = `記帳備份_${yyyy}-${mm}-${dd}.json`;
-
-    // 2. 打包資料
+    // A. 打包資料
     const backupObj = {
         version: "1.0", 
-        // 匯出時間也加上清楚的標示
-        exportDate: now.toLocaleString(), 
+        exportDate: new Date().toLocaleString(),
         records: records,
         categories: categories,
         bgStyle: bgStyle
     };
 
     const jsonString = JSON.stringify(backupObj, null, 2);
+    const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
     const file = new File([jsonString], fileName, { type: "application/json" });
 
-    // 3. 判斷裝置與環境
+    // B. 判斷裝置與環境
+    // 檢查是否為手機 (簡單判斷 userAgent)
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
+    // C. 分流處理
     if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // --- 手機模式：嘗試呼叫分享選單 (Line/存到檔案) ---
         try {
             await navigator.share({
                 files: [file],
                 title: '記帳備份',
-                text: `這是我的記帳備份檔 (${yyyy}-${mm}-${dd})`
+                text: '這是我的記帳備份檔'
             });
         } catch (err) {
+            // 如果使用者按取消 (AbortError)，就不做反應
+            // 如果是其他錯誤 (例如瀏覽器不支援)，則切換成下載模式
             if (err.name !== 'AbortError') {
+                console.warn("分享失敗，改為直接下載", err);
                 downloadFile(file, fileName);
             }
         }
     } else {
-        // 電腦模式
+        // --- 電腦模式：直接下載檔案 ---
         downloadFile(file, fileName);
     }
 }
@@ -802,20 +858,24 @@ function openDatePicker() {
 }
 
 
+// 修改開啟「新增模式」的函式
 function openInputModal(catName) {
     editingRecordId = null; 
     currentCategoryName = catName; 
     currentAmountStr = '0'; 
     noteInput.value = '';
     
-    // 【修正】使用當地時間，不會再變成昨天了
     recordDateInput.value = getLocalTodayString();
-    updateDateDisplay(); // 初始化顯示文字
+    updateDateDisplay(); 
 
+    // 更新標題
     document.getElementById('modalTitle').textContent = catName;
+    
+    // 設定右下角按鈕文字
     btnConfirmRecord.textContent = "確認"; 
-    btnDeleteRecord.style.display = 'none'; 
-    btnConfirmRecord.style.gridColumn = "span 2"; 
+    
+    // 【關鍵修改】隱藏標題旁的垃圾桶
+    btnHeaderTrash.style.display = 'none'; 
     
     updateDisplay(); 
     modal.style.display = 'flex';
