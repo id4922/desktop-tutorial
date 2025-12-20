@@ -1,18 +1,27 @@
 /* --- style.css --- */
 body { 
     font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; 
-    margin: 0; padding-bottom: 80px; 
+    margin: 0; 
+    /* padding-bottom: 80px;  <-- 【刪除這行】不要設在 body */
     -webkit-tap-highlight-color: transparent;
     background: linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%);
     min-height: 100vh;
     transition: background 0.5s ease;
 }
-
 .container { 
-    max-width: 600px; margin: 0 auto; padding: 20px; 
+    max-width: 600px; 
+    margin: 0 auto; 
+    
+    /* 【修改這行】原本是 padding: 20px; */
+    /* 改成下方這樣：上左右保持 20px，底部加到 100px 以避開導覽列 */
+    padding: 20px 20px 100px 20px; 
+    
     background: rgba(255, 255, 255, 0.85); 
     backdrop-filter: blur(10px);
     min-height: 100vh;
+    /* 建議加入這行，確保 padding 不會把寬度撐破 (雖然這裡沒影響，但是好習慣) */
+    box-sizing: border-box; 
+    
     box-shadow: 0 0 20px rgba(0,0,0,0.05);
 }
 
@@ -62,10 +71,16 @@ body {
 
 .display-window { background: #f8f9fa; border-radius: 12px; padding: 15px; text-align: right; font-size: 2.5rem; font-weight: bold; color: #444; margin-bottom: 10px; font-family: monospace; }
 .note-input { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; font-size: 1rem; text-align: center; box-sizing: border-box; margin-bottom: 15px; background: #fdfdfd; }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+.numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 強制三等分 */
+    gap: 10px;
+}
+
 .num-btn { background: white; border: 1px solid #eee; border-radius: 12px; padding: 15px; font-size: 1.4rem; font-weight: 500; box-shadow: 0 2px 0 #f0f0f0; }
 .num-btn:active { background: #eee; transform: translateY(2px); box-shadow: none;}
-.btn-confirm { grid-column: span 2; background: #e91e63; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #c2185b; }
+.btn-confirm { grid-column: auto; background: #e91e63; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #c2185b; }
 .btn-delete { background: #ff5252; color: white; border: none; font-weight: bold; box-shadow: 0 2px 0 #d32f2f; }
 
 /* --- 關鍵修正區：設定彈窗的色票網格 (V7.9) --- */
@@ -405,4 +420,73 @@ body {
     min-width: 90px;     /* 預留寬度給日期字串 */
     text-align: center;
     letter-spacing: 0.5px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between; /* 左右推開 */
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* 標題與垃圾桶的距離 */
+}
+
+.modal-title-text {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #444;
+}
+
+.close-btn {
+    font-size: 1.8rem;
+    color: #999;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 5px;
+}
+.close-btn:hover { color: #666; }
+
+/* 2. 標題旁的小垃圾桶樣式 */
+.btn-icon-trash {
+    /* 設定為實心紅色背景 */
+    background-color: #F8BBD0; /* 標準的警示紅 */
+    /* 設定圖示顏色為白色以對比 */
+    color: white;
+    
+    /* 移除預設邊框 */
+    border: none;
+    /* 調整內距，讓它看起來更像一個完整的按鈕 */
+    padding: 6px 10px;
+    /* 圓角 */
+    border-radius: 6px;
+    /* 字體大小 */
+    font-size: 1.1rem;
+    
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    
+    /* 保持預設隱藏，由 JS 控制顯示 */
+    display: none;
+    /* 確保垂直置中 */
+    line-height: 1;
+    align-items: center;
+}
+.btn-icon-trash:hover {
+    background-color: #dc3545; /* 比原本更深的紅色 */
+}
+
+.btn-icon-trash:active {
+    transform: scale(0.95);
+    background-color: #a71d2a;
+}
+
+/* 退格鍵樣式微調 */
+.btn-backspace {
+    color: #666;
+    font-weight: bold;
 }
