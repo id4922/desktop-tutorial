@@ -1,4 +1,4 @@
-/* --- style.css (V7.8 優化版) --- */
+/* --- style.css (V7.9 防抖動優化版) --- */
 :root {
     --glass-opacity: 0.85; 
     --primary-color: #e91e63;
@@ -29,6 +29,9 @@ body {
     box-shadow: 0 0 20px rgba(0,0,0,0.05);
     border-left: 1px solid rgba(255,255,255,0.3);
     border-right: 1px solid rgba(255,255,255,0.3);
+    
+    /* 修復部分手機滾動時的卡頓感 */
+    transform: translateZ(0); 
 }
 
 /* --- 通用工具類 --- */
@@ -277,12 +280,31 @@ body {
 .legend-amount { font-weight: bold; color: #333; }
 .legend-percent { font-size: 0.8rem; color: #999; margin-left: 5px; }
 
+/* ★ 核心修正區塊 ★
+   使用 lvh (Largest Viewport Height) 鎖定背景高度
+*/
 #global-bg {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    
+    /* 舊設備 Fallback */
+    height: 100vh; 
+    
+    /* 新設備: 忽略網址列收縮，永遠保持最大高度 */
+    height: 100lvh; 
+    
+    z-index: -1;
+    
     background: linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%);
     background-repeat: no-repeat;
     background-position: center center;
     background-size: cover;
+    
+    /* 讓瀏覽器知道這個元素會變形，啟用 GPU 優化，減少閃爍 */
+    will-change: transform; 
+    
     transition: background 0.5s ease;
     pointer-events: none; 
 }
