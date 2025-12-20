@@ -156,10 +156,51 @@
 
 <div id="bgModal" class="modal-overlay">
     <div class="modal-content">
-        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-            <span style="font-weight:bold; font-size:1.2rem;">更換背景</span>
-            <span onclick="closeBgModal()" style="font-size:1.5rem; color:#999; cursor:pointer;">×</span>
+        <div class="modal-header-simple" style="display:flex; justify-content:space-between; margin-bottom:15px;">
+            <span class="modal-title-simple" style="font-weight:bold; font-size:1.2rem;">主題設定</span>
+            <span onclick="closeBgModal()" class="close-btn-simple" style="font-size:1.5rem; color:#999; cursor:pointer;">×</span>
         </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #eee;">
+            <label style="display:block; margin-bottom:10px; color:#666; font-size:0.9rem;">
+                自訂背景圖片
+            </label>
+            
+            <input type="file" id="customBgInput" accept="image/*" style="display:none" onchange="handleCustomBgUpload(this)">
+            
+            <button onclick="document.getElementById('customBgInput').click()" class="btn-chip" style="width:100%; border:2px dashed #ccc; padding:15px; justify-content:center; color:#555;">
+                📁 上傳圖片
+            </button>
+
+            <button onclick="clearCustomBg()" class="btn-chip" id="btnClearCustomBg" style="width:100%; margin-top:10px; color:#ff5252; border-color:#ffcdd2; justify-content:center; display:none;">
+                ❌ 移除圖片與主題色
+            </button>
+        </div>
+
+        <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #eee;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <label style="color:#666; font-size:0.9rem;">視窗透明度</label>
+                <span id="opacityValue" style="font-size:0.8rem; color:#999;">85%</span>
+            </div>
+            <input type="range" id="opacityRange" min="0.05	" max="1.0" step="0.05" value="0.85" style="width:100%;" oninput="updateGlassOpacity(this.value)">
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#ccc; margin-top:5px;">
+                <span>透明</span>
+                <span>不透明</span>
+            </div>
+        </div>
+
+		<div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #eee;">
+			<label style="color:#666; font-size:0.9rem; margin-bottom:10px; display:block;">圖片顯示模式</label>
+			<div style="display:flex; gap:10px;">
+				<button onclick="updateBgSize('cover')" class="btn-chip" style="flex:1; justify-content:center;">
+					🔍 滿版 (裁切)
+				</button>
+				<button onclick="updateBgSize('contain')" class="btn-chip" style="flex:1; justify-content:center;">
+					🖼️ 完整 (留白)
+				</button>
+			</div>
+		</div>
+        <label style="font-size:0.9rem; color:#666;">或選擇預設漸層</label>
         <div class="settings-grid" id="bgGrid"></div>
     </div>
 </div>
