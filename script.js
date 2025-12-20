@@ -1,13 +1,18 @@
-/* --- script.js (V7.8 最終清洗版) --- */
+/* --- script.js (V7.8 優化版) --- */
+'use strict';
 
-/* --- 全域變數與設定 --- */
-let records = [];
-let categories = []; 
-let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
-let extractedColors = []; // 圖片分析出的顏色
-let currentBgSize = 'cover'; // 背景顯示模式 (cover/contain)
+/* --- 常數與全域設定 --- */
+const STORAGE_KEYS = {
+    RECORDS: 'myMoneyRecordsV4',
+    CATEGORIES: 'myCategoriesV2',
+    CATEGORIES_OLD: 'myCategoriesV1',
+    GLASS_OPACITY: 'myGlassOpacity',
+    EXTRACTED_COLORS: 'myExtractedColors',
+    BG_SIZE: 'myBgSize',
+    CUSTOM_BG: 'myCustomBgImage',
+    BG_STYLE: 'myBgStyle'
+};
 
-// 16色 色票庫
 const THEME_COLORS = [
     { val: "white", label: "簡約白" },
     { val: "#fff9c4", label: "奶油黃" },
@@ -32,13 +37,20 @@ const AUTO_COLORS = [
     "#FF9F40", "#8D6E63", "#EC407A", "#7E57C2", "#26A69A"
 ];
 
-// 狀態變數
+// 全域狀態變數
+let records = [];
+let categories = []; 
+let bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)"; 
+let extractedColors = []; 
+let currentBgSize = 'cover'; 
+
 let currentAmountStr = '0'; 
 let editingRecordId = null; 
 let currentCategoryName = ''; 
 let isEditMode = false;
 let editingCatIndex = null; 
 let isCreatingNew = false; 
+
 let sortableInstance = null;
 let trashSortable = null;
 let expenseChart = null;
@@ -54,15 +66,15 @@ window.onload = function() {
     initElements(); 
 
     // 1. 載入紀錄
-    const savedData = localStorage.getItem('myMoneyRecordsV4'); 
+    const savedData = localStorage.getItem(STORAGE_KEYS.RECORDS); 
     if (savedData) records = JSON.parse(savedData);
 
     // 2. 載入分類
-    const savedCats = localStorage.getItem('myCategoriesV2'); 
+    const savedCats = localStorage.getItem(STORAGE_KEYS.CATEGORIES); 
     if (savedCats) {
         categories = JSON.parse(savedCats);
     } else {
-        const oldCats = localStorage.getItem('myCategoriesV1');
+        const oldCats = localStorage.getItem(STORAGE_KEYS.CATEGORIES_OLD);
         if (oldCats) {
             const oldArr = JSON.parse(oldCats);
             categories = oldArr.map(name => ({ name: name, color: "white" }));
@@ -73,36 +85,25 @@ window.onload = function() {
     }
 
     // 3. 載入自訂主題與背景
-    
-    // (A) 載入透明度
-    const savedOpacity = localStorage.getItem('myGlassOpacity');
+    const savedOpacity = localStorage.getItem(STORAGE_KEYS.GLASS_OPACITY);
     if (savedOpacity) {
         updateGlassOpacity(savedOpacity);
         document.getElementById('opacityRange').value = savedOpacity;
     }
 
-    // (B) 載入圖片分析出的顏色
-    const savedExtractedColors = localStorage.getItem('myExtractedColors');
-    if (savedExtractedColors) {
-        extractedColors = JSON.parse(savedExtractedColors);
-    }
+    const savedExtractedColors = localStorage.getItem(STORAGE_KEYS.EXTRACTED_COLORS);
+    if (savedExtractedColors) extractedColors = JSON.parse(savedExtractedColors);
 
-    // (C) 載入背景顯示模式 (cover/contain)
-    const savedSize = localStorage.getItem('myBgSize');
-    if (savedSize) {
-        currentBgSize = savedSize;
-    }
+    const savedSize = localStorage.getItem(STORAGE_KEYS.BG_SIZE);
+    if (savedSize) currentBgSize = savedSize;
 
-    // (D) 載入背景圖 (優先權高於漸層)
-    const customBg = localStorage.getItem('myCustomBgImage');
+    const customBg = localStorage.getItem(STORAGE_KEYS.CUSTOM_BG);
     if (customBg) {
         applyCustomBackground(customBg);
     } else {
-        // 沒有圖片才載入預設漸層
-        const savedBg = localStorage.getItem('myBgStyle');
+        const savedBg = localStorage.getItem(STORAGE_KEYS.BG_STYLE);
         if (savedBg) {
             bgStyle = savedBg;
-            // ★ 修改：套用到 global-bg 而不是 body
             const bgLayer = document.getElementById('global-bg');
             if (bgLayer) bgLayer.style.background = bgStyle;
         }
@@ -152,7 +153,7 @@ function formatDateInput(date) {
     return `${y}-${m}-${d}`;
 }
 
-// 自動判斷文字顏色 (黑/白)
+// 自動判斷文字顏色 (YIQ 對比度算法)
 function getContrastColor(hexColor) {
     if (hexColor.includes("linear-gradient")) {
         const match = hexColor.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
@@ -183,7 +184,7 @@ function getChartColor(catName, index) {
     return color;
 }
 
-/* --- 分類渲染 (含智能邊框與字色) --- */
+/* --- 分類與 UI 渲染 --- */
 function renderCategories() {
     categoryGrid.innerHTML = '';
     categories.forEach((cat, index) => {
@@ -192,14 +193,10 @@ function renderCategories() {
         btn.textContent = cat.name;
         btn.style.background = cat.color;
         
-        // 1. 取得對比色 (黑或白)
         const textColor = getContrastColor(cat.color);
         btn.style.color = textColor;
-        
-        // 2. 統一粗體
         btn.style.fontWeight = "bold"; 
 
-        // 3. 智能邊框與陰影
         if (textColor === 'white') {
             btn.style.border = "1px solid rgba(255, 255, 255, 0.7)";
             btn.style.textShadow = "0 1px 2px rgba(0,0,0,0.3)"; 
@@ -280,18 +277,17 @@ function toggleEditMode() {
 }
 
 function saveCategories(render = true) {
-    localStorage.setItem('myCategoriesV2', JSON.stringify(categories));
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
     if(render) renderCategories();
 }
 
 /* --- 設定與背景 --- */
 let tempColor = "white";
 
-// 修改函式定義，多加一個參數 showExtracted，預設為 true
 function renderColorGrid(targetGrid, onClickCallback, selectedColor, showExtracted = true) {
     targetGrid.innerHTML = '';
     
-    // 區域 A: 圖片分析出的顏色 (增加判斷條件 && showExtracted)
+    // 區域 A: 圖片分析出的顏色
     if (showExtracted && extractedColors && extractedColors.length > 0) {
         const label = document.createElement('div');
         label.style.gridColumn = "1 / -1";
@@ -308,11 +304,12 @@ function renderColorGrid(targetGrid, onClickCallback, selectedColor, showExtract
         targetGrid.appendChild(hr);
     }
 
-    // 區域 B: 經典色 (保持不變)
+    // 區域 B: 經典色
     THEME_COLORS.forEach(c => {
         createSwatch(targetGrid, c.val, onClickCallback, selectedColor);
     });
 }
+
 function createSwatch(container, colorVal, onClick, selected) {
     const swatch = document.createElement('div');
     swatch.className = 'color-swatch';
@@ -326,17 +323,13 @@ function createSwatch(container, colorVal, onClick, selected) {
     container.appendChild(swatch);
 }
 
-/* --- script.js 修改部分 --- */
-
 function openSettingsModal(index) {
     editingCatIndex = index;
     const cat = categories[index];
     settingNameInput.value = cat.name;
     tempColor = cat.color || "white";
     
-    // ★★★ 這裡可以傳入 true，或什麼都不傳(預設即顯示) ★★★
     renderColorGrid(colorGrid, (val) => { tempColor = val; }, tempColor, true);
-    
     settingsModal.style.display = 'flex';
 }
 
@@ -374,24 +367,20 @@ function closeSettingsModal() {
 }
 
 // --- 背景設定 ---
-/* --- script.js 修改部分 --- */
 function openBgSettings() {
     const bgGrid = document.getElementById('bgGrid');
     
-    // 傳入 false 以隱藏圖片主題色，避免誤觸
     renderColorGrid(bgGrid, (val) => {
         bgStyle = val;
         
-        // ★ 修改：操作 global-bg
         const bgLayer = document.getElementById('global-bg');
         bgLayer.style.background = bgStyle;
-        bgLayer.style.backgroundSize = "cover"; // 漸層預設滿版
+        bgLayer.style.backgroundSize = "cover"; 
         
-        localStorage.setItem('myBgStyle', bgStyle);
+        localStorage.setItem(STORAGE_KEYS.BG_STYLE, bgStyle);
         
-        // 清除自訂圖片設定
-        localStorage.removeItem('myCustomBgImage');
-        localStorage.removeItem('myExtractedColors');
+        localStorage.removeItem(STORAGE_KEYS.CUSTOM_BG);
+        localStorage.removeItem(STORAGE_KEYS.EXTRACTED_COLORS);
         extractedColors = [];
         document.getElementById('btnClearCustomBg').style.display = 'none';
 
@@ -412,23 +401,20 @@ function handleCustomBgUpload(input) {
     reader.onload = async function(e) {
         const base64Image = e.target.result;
         
-        // 套用背景 (會呼叫更新後的 applyCustomBackground)
         applyCustomBackground(base64Image);
         
-        // 分析顏色
         try {
             extractedColors = await ColorThief.getPalette(base64Image, 5);
-            localStorage.setItem('myExtractedColors', JSON.stringify(extractedColors));
+            localStorage.setItem(STORAGE_KEYS.EXTRACTED_COLORS, JSON.stringify(extractedColors));
             
-            // 預覽更新 (不顯示圖片色)
             const bgGrid = document.getElementById('bgGrid');
             renderColorGrid(bgGrid, (val) => {}, null, false);
         } catch (err) {
             console.error("色彩分析失敗", err);
         }
 
-        localStorage.setItem('myCustomBgImage', base64Image);
-        localStorage.removeItem('myBgStyle'); 
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_BG, base64Image);
+        localStorage.removeItem(STORAGE_KEYS.BG_STYLE); 
         
         alert("背景設定成功！\n現在你可以去「編輯按鈕」看到從圖片擷取的主題色囉！");
         closeBgModal();
@@ -438,17 +424,11 @@ function handleCustomBgUpload(input) {
 
 function applyCustomBackground(imgUrl) {
     if (!imgUrl) return;
-    
-    // ★ 修改：抓取固定背景層
     const bgLayer = document.getElementById('global-bg');
-    
     bgLayer.style.backgroundImage = `url('${imgUrl}')`;
     bgLayer.style.backgroundRepeat = "no-repeat";
     bgLayer.style.backgroundPosition = "center center";
-    
-    // ★ 關鍵修改：因為 div 本身已經是 position:fixed，這裡改回預設 scroll，解決抖動
     bgLayer.style.backgroundAttachment = "scroll";
-    
     bgLayer.style.backgroundSize = currentBgSize;
     
     if (currentBgSize === 'contain') {
@@ -460,23 +440,23 @@ function applyCustomBackground(imgUrl) {
     const btn = document.getElementById('btnClearCustomBg');
     if(btn) btn.style.display = 'flex';
 }
+
 function clearCustomBg() {
     if(!confirm("確定要移除自訂背景與主題色嗎？")) return;
-    localStorage.removeItem('myCustomBgImage');
-    localStorage.removeItem('myExtractedColors');
+    localStorage.removeItem(STORAGE_KEYS.CUSTOM_BG);
+    localStorage.removeItem(STORAGE_KEYS.EXTRACTED_COLORS);
     extractedColors = [];
     
     bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)";
     
-    // ★ 修改：操作 global-bg
     const bgLayer = document.getElementById('global-bg');
     bgLayer.style.background = bgStyle;
     bgLayer.style.backgroundSize = "cover";
     
-    localStorage.setItem('myBgStyle', bgStyle);
+    localStorage.setItem(STORAGE_KEYS.BG_STYLE, bgStyle);
     
     currentBgSize = 'cover';
-    localStorage.removeItem('myBgSize');
+    localStorage.removeItem(STORAGE_KEYS.BG_SIZE);
     
     document.getElementById('btnClearCustomBg').style.display = 'none';
     
@@ -492,7 +472,7 @@ function updateGlassOpacity(val) {
     const percent = Math.round(val * 100);
     const el = document.getElementById('opacityValue');
     if(el) el.textContent = percent + '%';
-    localStorage.setItem('myGlassOpacity', val);
+    localStorage.setItem(STORAGE_KEYS.GLASS_OPACITY, val);
 
     const blurAmount = Math.max(0, val * 10) + 'px'; 
     const container = document.querySelector('.container');
@@ -502,11 +482,8 @@ function updateGlassOpacity(val) {
     }
 }
 
-// 縮放模式切換
 function updateBgSize(mode) {
     currentBgSize = mode;
-    
-    // ★ 修改：操作 global-bg
     const bgLayer = document.getElementById('global-bg');
     bgLayer.style.backgroundSize = mode;
     
@@ -515,11 +492,10 @@ function updateBgSize(mode) {
     } else {
         bgLayer.style.backgroundColor = "transparent";
     }
-    
-    localStorage.setItem('myBgSize', mode);
+    localStorage.setItem(STORAGE_KEYS.BG_SIZE, mode);
 }
 
-/* --- 記帳輸入與其他 (保持不變) --- */
+/* --- 記帳輸入邏輯 --- */
 function openInputModal(catName) {
     editingRecordId = null; 
     currentCategoryName = catName; 
@@ -542,10 +518,12 @@ function openEditRecord(id) {
     currentAmountStr = r.amount.toString();
     const match = r.category.match(/\((.*)\)/); 
     noteInput.value = match ? match[1] : '';
+    
     const d = new Date(id);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
+    
     recordDateInput.value = `${yyyy}-${mm}-${dd}`;
     updateDateDisplay(); 
     document.getElementById('modalTitle').textContent = "修改紀錄";
@@ -558,9 +536,13 @@ function openEditRecord(id) {
 function closeModal() { modal.style.display = 'none'; }
 
 function pressNum(k) {
-    if(k==='DEL') currentAmountStr = currentAmountStr.length>1 ? currentAmountStr.slice(0,-1) : '0';
-    else if(k==='00') { if(currentAmountStr!=='0' && currentAmountStr.length<8) currentAmountStr+='00'; }
-    else { if(currentAmountStr.length<9) currentAmountStr = currentAmountStr==='0' ? k : currentAmountStr+k; }
+    if(k==='DEL') {
+        currentAmountStr = currentAmountStr.length>1 ? currentAmountStr.slice(0,-1) : '0';
+    } else if(k==='00') { 
+        if(currentAmountStr!=='0' && currentAmountStr.length<8) currentAmountStr+='00'; 
+    } else { 
+        if(currentAmountStr.length<9) currentAmountStr = currentAmountStr==='0' ? k : currentAmountStr+k; 
+    }
     updateDisplay();
 }
 
@@ -595,6 +577,7 @@ function confirmRecord() {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d); 
     let finalTime;
+    
     if (editingRecordId) {
         const oldDate = new Date(editingRecordId);
         dateObj.setHours(oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
@@ -604,8 +587,10 @@ function confirmRecord() {
         dateObj.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
         finalTime = dateObj.getTime();
     }
+    
     const timeDisplay = `${dateObj.getHours()}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
     const timestampStr = dateObj.toLocaleString(); 
+    
     if (editingRecordId) {
         const idx = records.findIndex(x => x.id === editingRecordId);
         if (idx !== -1) { 
@@ -634,10 +619,11 @@ function deleteCurrentRecord() {
 }
 
 function saveRecords() {
-    localStorage.setItem('myMoneyRecordsV4', JSON.stringify(records));
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
     if(document.getElementById('tab-home').style.display !== 'none') renderHome(); else renderHistory();
 }
 
+/* --- 列表渲染 --- */
 function renderHome() {
     const list = document.getElementById('homeList');
     const totalEl = document.getElementById('todayTotal');
@@ -654,9 +640,13 @@ function renderHome() {
 function renderHistory() {
     const container = document.getElementById('historyListContainer');
     container.innerHTML = '';
-    if (records.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;margin-top:20px;">無資料</div>'; return; }
+    if (records.length === 0) { 
+        container.innerHTML = '<div style="text-align:center;color:#999;margin-top:20px;">無資料</div>'; 
+        return; 
+    }
     records.sort((a,b) => b.id - a.id);
-    let lastDate = ''; let ul = null;
+    let lastDate = ''; 
+    let ul = null;
     records.forEach(r => {
         const dStr = getFormattedDate(r.id);
         if (dStr !== lastDate) {
@@ -665,7 +655,11 @@ function renderHistory() {
             header.className = 'history-date-header';
             header.innerHTML = `<span>📅 ${dStr}</span><span class="daily-total">$${daySum.toLocaleString()}</span>`;
             container.appendChild(header);
-            ul = document.createElement('ul'); ul.className = 'log-list'; ul.style.background = 'white'; container.appendChild(ul);
+            
+            ul = document.createElement('ul'); 
+            ul.className = 'log-list'; 
+            ul.style.background = 'white'; 
+            container.appendChild(ul);
             lastDate = dStr;
         }
         if (ul) ul.appendChild(createLogItem(r));
@@ -673,7 +667,9 @@ function renderHistory() {
 }
 
 function createLogItem(r) {
-    const li = document.createElement('li'); li.className = 'log-item'; li.onclick = () => openEditRecord(r.id);
+    const li = document.createElement('li'); 
+    li.className = 'log-item'; 
+    li.onclick = () => openEditRecord(r.id);
     li.innerHTML = `<div class="log-info"><span class="log-time">${r.timeDisplay}</span><span class="log-cat">${r.category}</span></div><span class="log-money">$${r.amount}</span>`;
     return li;
 }
@@ -688,11 +684,13 @@ function switchTab(t) {
     else if (t === 'chart') setDateRange('week');
 }
 
+/* --- 圖表與分析 --- */
 function initChartPage() {
     setDateRange('week');
     document.getElementById('startDate').addEventListener('change', updateChart);
     document.getElementById('endDate').addEventListener('change', updateChart);
 }
+
 function setDateRange(type) {
     const today = new Date();
     let start = new Date(); let end = new Date(); 
@@ -700,35 +698,46 @@ function setDateRange(type) {
     else if (type === 'month') start.setDate(today.getDate() - 29);
     else if (type === 'thisMonth') start = new Date(today.getFullYear(), today.getMonth(), 1);
     else if (type === 'thisWeek') {
-        let day = today.getDay(); let diff = day === 0 ? 6 : day - 1; start.setDate(today.getDate() - diff);
+        let day = today.getDay(); 
+        let diff = day === 0 ? 6 : day - 1; 
+        start.setDate(today.getDate() - diff);
     }
     document.getElementById('startDate').value = formatDateInput(start);
     document.getElementById('endDate').value = formatDateInput(end);
     updateChart();
 }
+
 function updateChart() {
     const startStr = document.getElementById('startDate').value;
     const endStr = document.getElementById('endDate').value;
     if (!startStr || !endStr) return;
+    
     const startTime = new Date(startStr).setHours(0,0,0,0);
     const endTime = new Date(endStr).setHours(23,59,59,999);
+    
     const filteredRecords = records.filter(r => r.id >= startTime && r.id <= endTime);
-    const stats = {}; let totalSum = 0;
+    const stats = {}; 
+    let totalSum = 0;
+    
     filteredRecords.forEach(r => {
         const catName = r.pureCategory || r.category.split(' (')[0];
         if (!stats[catName]) stats[catName] = 0;
         stats[catName] += r.amount;
         totalSum += r.amount;
     });
+    
     const sortedStats = Object.keys(stats).map(key => ({ name: key, amount: stats[key] })).sort((a, b) => b.amount - a.amount);
     renderChart(sortedStats, totalSum);
     renderLegend(sortedStats, totalSum);
 }
+
 function renderChart(data, totalSum) {
     const ctx = document.getElementById('expenseChart').getContext('2d');
     const bgColors = data.map((item, index) => getChartColor(item.name, index));
     if (expenseChart) expenseChart.destroy();
+    
     if (data.length === 0) return; 
+    
     const centerTextPlugin = {
         id: 'centerText',
         beforeDraw: function(chart) {
@@ -741,6 +750,7 @@ function renderChart(data, totalSum) {
             const text = "$" + totalSum.toLocaleString();
             const textY = height / 2 + (height * 0.02); 
             ctx.fillText(text, width / 2, textY);
+            
             const fontSizeLabel = (height / 240).toFixed(2);
             ctx.font = `${fontSizeLabel}em ${fontFamily}`; ctx.fillStyle = "#999"; 
             const label = "總支出";
@@ -749,17 +759,48 @@ function renderChart(data, totalSum) {
             ctx.save();
         }
     };
+    
     expenseChart = new Chart(ctx, {
         type: 'doughnut',
-        data: { labels: data.map(d => d.name), datasets: [{ data: data.map(d => d.amount), backgroundColor: bgColors, borderWidth: 2, borderColor: '#ffffff' }] },
+        data: { 
+            labels: data.map(d => d.name), 
+            datasets: [{ 
+                data: data.map(d => d.amount), 
+                backgroundColor: bgColors, 
+                borderWidth: 2, 
+                borderColor: '#ffffff' 
+            }] 
+        },
         plugins: [centerTextPlugin], 
-        options: { responsive: true, maintainAspectRatio: false, cutout: '75%', layout: { padding: 10 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { let label = context.label || ''; let value = context.raw; let percent = Math.round((value / totalSum) * 100) + '%'; return `${label}: $${value.toLocaleString()} (${percent})`; } } } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            cutout: '75%', 
+            layout: { padding: 10 }, 
+            plugins: { 
+                legend: { display: false }, 
+                tooltip: { 
+                    callbacks: { 
+                        label: function(context) { 
+                            let label = context.label || ''; 
+                            let value = context.raw; 
+                            let percent = Math.round((value / totalSum) * 100) + '%'; 
+                            return `${label}: $${value.toLocaleString()} (${percent})`; 
+                        } 
+                    } 
+                } 
+            } 
+        }
     });
 }
+
 function renderLegend(data, totalSum) {
     const container = document.getElementById('chartLegend');
     container.innerHTML = '';
-    if (data.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;">此區間無支出資料</div>'; return; }
+    if (data.length === 0) { 
+        container.innerHTML = '<div style="text-align:center;color:#999;">此區間無支出資料</div>'; 
+        return; 
+    }
     data.forEach((item, index) => {
         const percent = Math.round((item.amount / totalSum) * 100);
         const color = getChartColor(item.name, index);
@@ -769,30 +810,62 @@ function renderLegend(data, totalSum) {
         container.appendChild(div);
     });
 }
+
+/* --- 資料匯出入 --- */
 function exportCSV() {
     if(records.length===0) return alert("無資料");
     let csv = "data:text/csv;charset=utf-8,\uFEFF時間,項目,金額\n";
     records.forEach(r => csv += `${r.timestamp},${r.category},${r.amount}\n`);
-    const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `money_log_${Date.now()}.csv`;
-    document.body.appendChild(link); link.click();
+    const link = document.createElement("a"); 
+    link.href = encodeURI(csv); 
+    link.download = `money_log_${Date.now()}.csv`;
+    document.body.appendChild(link); 
+    link.click();
 }
-function clearAllData() { if(confirm("清空所有資料？")) { records=[]; saveRecords(); } }
+
+function clearAllData() { 
+    if(confirm("清空所有資料？")) { 
+        records=[]; 
+        saveRecords(); 
+    } 
+}
+
 async function backupData() {
-    const backupObj = { version: "1.0", exportDate: new Date().toLocaleString(), records: records, categories: categories, bgStyle: bgStyle, customBg: localStorage.getItem('myCustomBgImage') };
+    const backupObj = { 
+        version: "1.0", 
+        exportDate: new Date().toLocaleString(), 
+        records: records, 
+        categories: categories, 
+        bgStyle: bgStyle, 
+        customBg: localStorage.getItem(STORAGE_KEYS.CUSTOM_BG) 
+    };
     const jsonString = JSON.stringify(backupObj, null, 2);
     const fileName = `記帳備份_${new Date().toISOString().slice(0,10)}.json`;
     const file = new File([jsonString], fileName, { type: "application/json" });
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
     if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: '記帳備份', text: '這是我的記帳備份檔' }); } 
-        catch (err) { if (err.name !== 'AbortError') { downloadFile(file, fileName); } }
-    } else { downloadFile(file, fileName); }
+        try { 
+            await navigator.share({ files: [file], title: '記帳備份', text: '這是我的記帳備份檔' }); 
+        } catch (err) { 
+            if (err.name !== 'AbortError') { downloadFile(file, fileName); } 
+        }
+    } else { 
+        downloadFile(file, fileName); 
+    }
 }
+
 function downloadFile(fileBlob, fileName) {
-    const link = document.createElement('a'); link.href = URL.createObjectURL(fileBlob); link.download = fileName;
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const link = document.createElement('a'); 
+    link.href = URL.createObjectURL(fileBlob); 
+    link.download = fileName;
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
 }
+
 function triggerRestore() { document.getElementById('restoreInput').click(); }
+
 function restoreData(inputElement) {
     const file = inputElement.files[0];
     if (!file) return;
@@ -801,21 +874,34 @@ function restoreData(inputElement) {
         try {
             const data = JSON.parse(e.target.result);
             if (!data.records || !data.categories) return alert("這不是正確的備份檔案！");
-            if (!confirm(`確定要還原備份嗎？\n(備份日期: ${data.exportDate || '未知'})\n\n⚠️ 這將會覆蓋現有的所有資料！`)) { inputElement.value = ''; return; }
-            records = data.records; categories = data.categories;
+            
+            if (!confirm(`確定要還原備份嗎？\n(備份日期: ${data.exportDate || '未知'})\n\n⚠️ 這將會覆蓋現有的所有資料！`)) { 
+                inputElement.value = ''; 
+                return; 
+            }
+            
+            records = data.records; 
+            categories = data.categories;
             if (data.bgStyle) bgStyle = data.bgStyle;
-            saveRecords(); saveCategories(); 
-            localStorage.setItem('myBgStyle', bgStyle);
+            
+            saveRecords(); 
+            saveCategories(); 
+            
+            localStorage.setItem(STORAGE_KEYS.BG_STYLE, bgStyle);
             document.body.style.background = bgStyle;
+            
             if(data.customBg) { 
-                localStorage.setItem('myCustomBgImage', data.customBg); 
+                localStorage.setItem(STORAGE_KEYS.CUSTOM_BG, data.customBg); 
             }
             alert("還原成功！頁面將重新整理。");
             location.reload();
-        } catch (err) { alert("檔案讀取失敗，格式可能錯誤。"); }
+        } catch (err) { 
+            alert("檔案讀取失敗，格式可能錯誤。"); 
+        }
     };
     reader.readAsText(file);
 }
+
 window.onclick = function(e) {
     if (e.target.classList.contains('modal-overlay')) {
         if (e.target.id === 'settingsModal') closeSettingsModal(); 
@@ -824,7 +910,7 @@ window.onclick = function(e) {
     }
 }
 
-// --- 色彩分析工具 (ColorThief V4: 智慧去背版) ---
+/* --- 色彩分析工具 (ColorThief V4: 智慧去背版) --- */
 const ColorThief = {
     getPalette: function(base64Str, count = 5) {
         return new Promise((resolve) => {
@@ -853,21 +939,26 @@ const ColorThief = {
         const data = ctx.getImageData(0, 0, width, height).data;
         const colorCounts = {};
 
-        // 偵測角落顏色 (背景)
+        // 偵測角落顏色 (推測背景色)
         const corners = [0, (width - 1) * 4, (height - 1) * width * 4, (data.length - 4)];
         let bgColor = null;
         const c0 = { r: data[corners[0]], g: data[corners[0]+1], b: data[corners[0]+2] };
-        if (ColorThief.isSimilar(c0, {r: data[corners[1]], g: data[corners[1]+1], b: data[corners[1]+2]}) &&
-            ColorThief.isSimilar(c0, {r: data[corners[3]], g: data[corners[3]+1], b: data[corners[3]+2]})) {
+        
+        // 簡單的一致性檢查
+        const isCorner1Similar = ColorThief.isSimilar(c0, {r: data[corners[1]], g: data[corners[1]+1], b: data[corners[1]+2]});
+        const isCorner3Similar = ColorThief.isSimilar(c0, {r: data[corners[3]], g: data[corners[3]+1], b: data[corners[3]+2]});
+        
+        if (isCorner1Similar && isCorner3Similar) {
             bgColor = c0;
         }
 
-        // 遍歷
+        // 像素遍歷與量化
         for (let i = 0; i < data.length; i += 4) {
-            const r = data[i]; const g = data[i + 1]; const b = data[i + 2]; const a = data[i + 3];
-            if (a < 125) continue; 
-            if (bgColor && ColorThief.isSimilar({r,g,b}, bgColor, 30)) continue;
-            if ((r + g + b) / 3 < 20) continue; 
+            const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+            
+            if (a < 125) continue; // 忽略透明
+            if (bgColor && ColorThief.isSimilar({r,g,b}, bgColor, 30)) continue; // 忽略背景
+            if ((r + g + b) / 3 < 20) continue; // 忽略過暗
 
             const step = 10; 
             const rQ = Math.round(r / step) * step;
@@ -880,6 +971,8 @@ const ColorThief = {
             const max = Math.max(r, g, b);
             const min = Math.min(r, g, b);
             const saturation = max - min;
+            
+            // 加權：高飽和度色彩權重更高
             let weight = 1;
             if (saturation > 40) weight += 10;
             if (saturation > 80) weight += 20;
@@ -894,6 +987,8 @@ const ColorThief = {
             if (palette.length >= count) break;
             const hex = "#" + ((1 << 24) + (c.r << 16) + (c.g << 8) + c.b).toString(16).slice(1);
             let isTooClose = false;
+            
+            // 避免選出過於相近的顏色
             for (let pHex of palette) {
                 const pr = parseInt(pHex.substr(1,2), 16);
                 const pg = parseInt(pHex.substr(3,2), 16);
