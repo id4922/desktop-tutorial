@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>記帳 V7.5 (終極版)</title>
-    
     <link rel="stylesheet" href="style.css">
-    
     <script src="Sortable.min.js"></script>
-	<script src="chart.umd.min.js"></script>
+    <script src="chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -27,49 +25,40 @@
                 <button id="btnToggleEdit" class="btn-icon" onclick="toggleEditMode()" title="編輯按鈕">⚙️</button>
             </div>
         </div>
-		
-		<div id="deleteZone" class="delete-zone" style="display:none;">
-			🗑️ 拖曳按鈕到這裡刪除
-		</div>
+        
+        <div id="deleteZone" class="delete-zone" style="display:none;">
+            🗑️ 拖曳按鈕到這裡刪除
+        </div>
 
         <div class="category-grid" id="categoryGrid"></div>
-
-
 
         <div class="section-title" style="margin-top:20px;">今日明細</div>
         <ul class="log-list" id="homeList"></ul>
     </div>
 
-	<div id="tab-history" class="tab-content">
-		
-		<div class="toolbar-history">
-			<div class="section-title">歷史紀錄</div>
-			
-			<div class="action-buttons-row">
-				<button onclick="backupData()" class="btn-chip" style="color:#2E7D32; border-color:#C8E6C9;">
-					📤 備份
-				</button>
-				
-				<button onclick="triggerRestore()" class="btn-chip" style="color:#E65100; border-color:#FFE0B2;">
-					📥 還原
-				</button>
-				
-				<button onclick="exportCSV()" class="btn-chip" style="color:#444;">
-					📥 CSV
-				</button>
-				
-				<button onclick="clearAllData()" class="btn-chip" style="color:#D32F2F; border-color:#FFCDD2;">
-					🗑️ 清空
-				</button>
-			</div>
-		</div>
-		
-		<input type="file" id="restoreInput" style="display:none" accept=".json" onchange="restoreData(this)">
-		
-		<div id="historyListContainer"></div>
-	</div>
-	
-	<div id="tab-chart" class="tab-content">
+    <div id="tab-history" class="tab-content">
+        <div class="toolbar-history">
+            <div class="section-title">歷史紀錄</div>
+            <div class="action-buttons-row">
+                <button onclick="backupData()" class="btn-chip" style="color:#2E7D32; border-color:#C8E6C9;">
+                    📤 備份
+                </button>
+                <button onclick="triggerRestore()" class="btn-chip" style="color:#E65100; border-color:#FFE0B2;">
+                    📥 還原
+                </button>
+                <button onclick="exportCSV()" class="btn-chip" style="color:#444;">
+                    📥 CSV
+                </button>
+                <button onclick="clearAllData()" class="btn-chip" style="color:#D32F2F; border-color:#FFCDD2;">
+                    🗑️ 清空
+                </button>
+            </div>
+        </div>
+        <input type="file" id="restoreInput" style="display:none" accept=".json" onchange="restoreData(this)">
+        <div id="historyListContainer"></div>
+    </div>
+    
+    <div id="tab-chart" class="tab-content">
         <div class="toolbar">
             <div class="section-title">收支統計</div>
         </div>
@@ -126,11 +115,8 @@
 
         <div class="input-row">
             <input type="date" id="recordDateInput" class="hidden-date-input" onchange="updateDateDisplay()">
-            
             <button class="btn-calendar-trigger" id="btnDateTrigger" onclick="openDatePicker()" title="更改日期">📅</button>
-            
             <span id="dateDisplayText" class="date-display-text" onclick="openDatePicker()">2025-01-01</span>
-            
             <input type="text" id="noteInput" class="note-input-flex" placeholder="備註">
         </div>
 
@@ -138,15 +124,12 @@
             <button class="num-btn" onclick="pressNum('1')">1</button>
             <button class="num-btn" onclick="pressNum('2')">2</button>
             <button class="num-btn" onclick="pressNum('3')">3</button>
-            
             <button class="num-btn" onclick="pressNum('4')">4</button>
             <button class="num-btn" onclick="pressNum('5')">5</button>
             <button class="num-btn" onclick="pressNum('6')">6</button>
-            
             <button class="num-btn" onclick="pressNum('7')">7</button>
             <button class="num-btn" onclick="pressNum('8')">8</button>
             <button class="num-btn" onclick="pressNum('9')">9</button>
-            
             <button class="num-btn btn-backspace" onclick="pressNum('DEL')">⌫</button>
             <button class="num-btn" onclick="pressNum('0')">0</button>
             <button class="num-btn btn-confirm" id="btnConfirmRecord" onclick="confirmRecord()">確認</button>
@@ -182,6 +165,5 @@
 </div>
 
 <script src="script.js"></script>
-
 </body>
 </html>
