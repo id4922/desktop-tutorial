@@ -102,7 +102,9 @@ window.onload = function() {
         const savedBg = localStorage.getItem('myBgStyle');
         if (savedBg) {
             bgStyle = savedBg;
-            document.body.style.background = bgStyle;
+            // ★ 修改：套用到 global-bg 而不是 body
+            const bgLayer = document.getElementById('global-bg');
+            if (bgLayer) bgLayer.style.background = bgStyle;
         }
     }
 
@@ -373,16 +375,17 @@ function closeSettingsModal() {
 
 // --- 背景設定 ---
 /* --- script.js 修改部分 --- */
-
 function openBgSettings() {
     const bgGrid = document.getElementById('bgGrid');
     
-    // ★★★ 修改這裡：最後加一個 false，不顯示圖片色，避免誤觸切換背景 ★★★
+    // 傳入 false 以隱藏圖片主題色，避免誤觸
     renderColorGrid(bgGrid, (val) => {
-        // 如果選了預設色票，就移除自訂圖片
         bgStyle = val;
-        document.body.style.background = bgStyle;
-        document.body.style.backgroundSize = "auto"; // 重置 size
+        
+        // ★ 修改：操作 global-bg
+        const bgLayer = document.getElementById('global-bg');
+        bgLayer.style.background = bgStyle;
+        bgLayer.style.backgroundSize = "cover"; // 漸層預設滿版
         
         localStorage.setItem('myBgStyle', bgStyle);
         
@@ -393,7 +396,7 @@ function openBgSettings() {
         document.getElementById('btnClearCustomBg').style.display = 'none';
 
         closeBgModal();
-    }, bgStyle, false); // <--- 這裡傳入 false
+    }, bgStyle, false); 
 
     bgModal.style.display = 'flex';
 }
@@ -409,7 +412,7 @@ function handleCustomBgUpload(input) {
     reader.onload = async function(e) {
         const base64Image = e.target.result;
         
-        // 套用背景
+        // 套用背景 (會呼叫更新後的 applyCustomBackground)
         applyCustomBackground(base64Image);
         
         // 分析顏色
@@ -417,7 +420,7 @@ function handleCustomBgUpload(input) {
             extractedColors = await ColorThief.getPalette(base64Image, 5);
             localStorage.setItem('myExtractedColors', JSON.stringify(extractedColors));
             
-            // 預覽更新
+            // 預覽更新 (不顯示圖片色)
             const bgGrid = document.getElementById('bgGrid');
             renderColorGrid(bgGrid, (val) => {}, null, false);
         } catch (err) {
@@ -435,20 +438,28 @@ function handleCustomBgUpload(input) {
 
 function applyCustomBackground(imgUrl) {
     if (!imgUrl) return;
-    document.body.style.backgroundImage = `url('${imgUrl}')`;
-    document.body.style.backgroundRepeat = "no-repeat";
-    document.body.style.backgroundPosition = "center center";
-    document.body.style.backgroundAttachment = "fixed";
-    document.body.style.backgroundSize = currentBgSize;
+    
+    // ★ 修改：抓取固定背景層
+    const bgLayer = document.getElementById('global-bg');
+    
+    bgLayer.style.backgroundImage = `url('${imgUrl}')`;
+    bgLayer.style.backgroundRepeat = "no-repeat";
+    bgLayer.style.backgroundPosition = "center center";
+    
+    // ★ 關鍵修改：因為 div 本身已經是 position:fixed，這裡改回預設 scroll，解決抖動
+    bgLayer.style.backgroundAttachment = "scroll";
+    
+    bgLayer.style.backgroundSize = currentBgSize;
     
     if (currentBgSize === 'contain') {
-        document.body.style.backgroundColor = "#f0f2f5";
+        bgLayer.style.backgroundColor = "#f0f2f5";
+    } else {
+        bgLayer.style.backgroundColor = "transparent";
     }
 
     const btn = document.getElementById('btnClearCustomBg');
     if(btn) btn.style.display = 'flex';
 }
-
 function clearCustomBg() {
     if(!confirm("確定要移除自訂背景與主題色嗎？")) return;
     localStorage.removeItem('myCustomBgImage');
@@ -456,8 +467,12 @@ function clearCustomBg() {
     extractedColors = [];
     
     bgStyle = "linear-gradient(135deg, #e0f7fa 0%, #80cbc4 100%)";
-    document.body.style.background = bgStyle;
-    document.body.style.backgroundSize = "auto";
+    
+    // ★ 修改：操作 global-bg
+    const bgLayer = document.getElementById('global-bg');
+    bgLayer.style.background = bgStyle;
+    bgLayer.style.backgroundSize = "cover";
+    
     localStorage.setItem('myBgStyle', bgStyle);
     
     currentBgSize = 'cover';
@@ -469,7 +484,7 @@ function clearCustomBg() {
     document.getElementById('opacityRange').value = 0.85;
 
     const bgGrid = document.getElementById('bgGrid');
-    renderColorGrid(bgGrid, (val) => {}, bgStyle);
+    renderColorGrid(bgGrid, (val) => {}, bgStyle, false);
 }
 
 function updateGlassOpacity(val) {
@@ -490,10 +505,17 @@ function updateGlassOpacity(val) {
 // 縮放模式切換
 function updateBgSize(mode) {
     currentBgSize = mode;
-    document.body.style.backgroundSize = mode;
+    
+    // ★ 修改：操作 global-bg
+    const bgLayer = document.getElementById('global-bg');
+    bgLayer.style.backgroundSize = mode;
+    
     if (mode === 'contain') {
-        document.body.style.backgroundColor = "#f0f2f5";
+        bgLayer.style.backgroundColor = "#f0f2f5";
+    } else {
+        bgLayer.style.backgroundColor = "transparent";
     }
+    
     localStorage.setItem('myBgSize', mode);
 }
 
