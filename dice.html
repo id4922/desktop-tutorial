@@ -13,9 +13,6 @@
     <meta name="apple-mobile-web-app-title" content="擲骰工具">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
-    <link rel="apple-touch-icon" href="icon.png">
-
     <style>
         body {
             font-family: 'Segoe UI', "Microsoft JhengHei", Tahoma, Geneva, Verdana, sans-serif;
@@ -120,7 +117,21 @@
             border-color: #4a90e2;
         }
 
-        /* 將結果區變成按鈕樣式 */
+        /* 10面骰說明文字樣式 */
+        #d10-instruction {
+            height: 24px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #e67e22;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #d10-instruction.visible {
+            opacity: 1;
+        }
+
         .results-area {
             flex-grow: 1;
             min-height: 250px;
@@ -133,18 +144,14 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            cursor: pointer; /* 鼠標變成點擊圖示 */
+            cursor: pointer;
             transition: all 0.2s ease;
-            user-select: none; /* 防止反白文字 */
+            user-select: none;
         }
 
         .results-area:hover {
             background-color: #f0f4f8;
             border-color: #4a90e2;
-        }
-
-        .results-area:active {
-            transform: scale(0.98); /* 點擊時微縮放，增加按鈕手感 */
         }
 
         .dice-results {
@@ -153,7 +160,7 @@
             flex-wrap: wrap;
             gap: 15px;
             width: 100%;
-            pointer-events: none; /* 讓點擊事件直接穿透給父元素 results-area */
+            pointer-events: none;
         }
 
         .die {
@@ -168,7 +175,6 @@
             font-weight: bold;
             border-radius: 14px;
             box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-            opacity: 1;
             transition: background-color 0.1s;
         }
 
@@ -183,11 +189,6 @@
             border-radius: 50%;
             color: #fff;
             border: 3px solid #d35400;
-        }
-
-        .die.coin-style.rolling {
-            background-color: #f39c12;
-            animation: coinRollingFlicker 0.1s infinite linear;
         }
 
         .total-score {
@@ -206,15 +207,9 @@
         }
 
         @keyframes rollingFlicker {
-            0% { transform: scale(1) rotate(0deg); filter: blur(1px); }
-            50% { transform: scale(1.05) rotate(5deg); filter: blur(1.5px); }
-            100% { transform: scale(1) rotate(0deg); filter: blur(1px); }
-        }
-
-        @keyframes coinRollingFlicker {
-            0% { transform: scaleX(1) rotate(0deg); }
-            50% { transform: scaleX(0.1) rotate(180deg); }
-            100% { transform: scaleX(1) rotate(360deg); }
+            0% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.05) rotate(5deg); }
+            100% { transform: scale(1) rotate(0deg); }
         }
     </style>
 </head>
@@ -226,13 +221,12 @@
         <div class="section">
             <div class="section-title">選擇類型</div>
             <div class="dice-types" id="dice-types">
-                <button class="dice-btn" data-sides="4" data-type="dice">4 面</button>
                 <button class="dice-btn selected" data-sides="6" data-type="dice">6 面</button>
+                <button class="dice-btn" data-sides="4" data-type="dice">4 面</button>
                 <button class="dice-btn" data-sides="8" data-type="dice">8 面</button>
                 <button class="dice-btn" data-sides="10" data-type="dice">10 面</button>
                 <button class="dice-btn" data-sides="12" data-type="dice">12 面</button>
                 <button class="dice-btn" data-sides="20" data-type="dice">20 面</button>
-                <button class="dice-btn" data-sides="100" data-type="dice">100 面</button>
                 <button class="dice-btn" data-sides="2" data-type="coin">銅板</button>
             </div>
         </div>
@@ -243,6 +237,8 @@
                 <input type="number" id="dice-qty" min="1" max="10" value="1">
             </div>
         </div>
+
+        <div id="d10-instruction">十面骰的骰面數字為0~9</div>
 
         <div class="results-area" id="roll-trigger" title="點擊此處擲骰">
             <div class="dice-results" id="dice-results">
@@ -263,12 +259,12 @@
         const rollTrigger = document.getElementById('roll-trigger');
         const resultsContainer = document.getElementById('dice-results');
         const totalScoreDisplay = document.getElementById('total-score');
+        const d10Instruction = document.getElementById('d10-instruction');
 
         const ANIM_MIN_TOTAL_MS = 500;
         const ANIM_MAX_TOTAL_MS = 1000;
         const FLICKER_INTERVAL_MS = 50;
 
-        // 類型切換邏輯
         diceButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 if (isRolling) return;
@@ -277,15 +273,18 @@
                 
                 currentSides = parseInt(e.target.getAttribute('data-sides'));
                 currentType = e.target.getAttribute('data-type');
+
+                // 控制說明文字顯示
+                if (currentSides === 10 && currentType === 'dice') {
+                    d10Instruction.classList.add('visible');
+                } else {
+                    d10Instruction.classList.remove('visible');
+                }
             });
         });
 
-        // 數量輸入框邏輯
         qtyInput.addEventListener('focus', (e) => {
-            if (isRolling) {
-                e.target.blur();
-                return;
-            }
+            if (isRolling) { e.target.blur(); return; }
             e.target.value = '';
         });
 
@@ -298,7 +297,6 @@
             }
         });
 
-        // 點擊結果區觸發擲骰
         rollTrigger.addEventListener('click', () => {
             if (isRolling) return;
             isRolling = true;
@@ -307,7 +305,6 @@
             qtyInput.disabled = true;
 
             let qty = lastValidQty;
-
             resultsContainer.innerHTML = '';
             totalScoreDisplay.classList.remove('show');
             
@@ -327,11 +324,17 @@
 
                 let finalVal = 0;
                 let finalText = '';
+
                 if (currentType === 'coin') {
-                    finalVal = Math.random() < 0.5;
+                    finalVal = Math.random() < 0.5 ? 1 : 0;
                     finalText = finalVal ? '正' : '反';
                 } else {
-                    finalVal = Math.floor(Math.random() * currentSides) + 1;
+                    // 核心修改：若是10面骰，結果為 0~9
+                    if (currentSides === 10) {
+                        finalVal = Math.floor(Math.random() * 10);
+                    } else {
+                        finalVal = Math.floor(Math.random() * currentSides) + 1;
+                    }
                     finalText = finalVal;
                     currentTotal += finalVal;
                 }
@@ -341,7 +344,12 @@
                     if (currentType === 'coin') {
                         dieElement.textContent = Math.random() < 0.5 ? '正' : '反';
                     } else {
-                        dieElement.textContent = Math.floor(Math.random() * currentSides) + 1;
+                        // 閃爍動畫也要符合 0~9 邏輯
+                        if (currentSides === 10) {
+                            dieElement.textContent = Math.floor(Math.random() * 10);
+                        } else {
+                            dieElement.textContent = Math.floor(Math.random() * currentSides) + 1;
+                        }
                     }
                 }, FLICKER_INTERVAL_MS);
                 flickerIntervals.push(interval);
