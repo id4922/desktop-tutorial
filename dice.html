@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-        <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>擲骰工具</title>
 
@@ -226,11 +226,13 @@
         <div class="section">
             <div class="section-title">選擇類型</div>
             <div class="dice-types" id="dice-types">
-                <button class="dice-btn selected" data-sides="6" data-type="dice">6 面</button>
                 <button class="dice-btn" data-sides="4" data-type="dice">4 面</button>
+                <button class="dice-btn selected" data-sides="6" data-type="dice">6 面</button>
                 <button class="dice-btn" data-sides="8" data-type="dice">8 面</button>
                 <button class="dice-btn" data-sides="10" data-type="dice">10 面</button>
+                <button class="dice-btn" data-sides="12" data-type="dice">12 面</button>
                 <button class="dice-btn" data-sides="20" data-type="dice">20 面</button>
+                <button class="dice-btn" data-sides="100" data-type="dice">100 面</button>
                 <button class="dice-btn" data-sides="2" data-type="coin">銅板</button>
             </div>
         </div>
@@ -254,11 +256,11 @@
         let currentSides = 6;
         let currentType = 'dice';
         let isRolling = false;
-        let lastValidQty = 1; // 記錄最後一次合法的數量
+        let lastValidQty = 1;
 
         const diceButtons = document.querySelectorAll('.dice-btn');
         const qtyInput = document.getElementById('dice-qty');
-        const rollTrigger = document.getElementById('roll-trigger'); // 綁定整個區域
+        const rollTrigger = document.getElementById('roll-trigger');
         const resultsContainer = document.getElementById('dice-results');
         const totalScoreDisplay = document.getElementById('total-score');
 
@@ -279,7 +281,6 @@
         });
 
         // 數量輸入框邏輯
-        // 1. 點擊輸入框時清空內容
         qtyInput.addEventListener('focus', (e) => {
             if (isRolling) {
                 e.target.blur();
@@ -288,14 +289,12 @@
             e.target.value = '';
         });
 
-        // 2. 離開輸入框時檢查，無效就恢復，有效就記錄
         qtyInput.addEventListener('blur', (e) => {
             let val = parseInt(e.target.value);
-            // 如果沒輸入、輸入非數字，或超出範圍 1-10
             if (isNaN(val) || val < 1 || val > 10) {
-                e.target.value = lastValidQty; // 恢復上一次的值
+                e.target.value = lastValidQty;
             } else {
-                lastValidQty = val; // 記錄新的合法值
+                lastValidQty = val;
             }
         });
 
@@ -304,7 +303,6 @@
             if (isRolling) return;
             isRolling = true;
             
-            // 確保擲骰時輸入框的值是最新的合法值
             qtyInput.blur(); 
             qtyInput.disabled = true;
 
@@ -318,7 +316,6 @@
             let flickerIntervals = [];
             let currentTotal = 0;
 
-            // 初始化所有骰子
             for (let i = 0; i < qty; i++) {
                 const dieElement = document.createElement('div');
                 dieElement.classList.add('die');
@@ -328,7 +325,6 @@
                 resultsContainer.appendChild(dieElement);
                 diceElements.push(dieElement);
 
-                // 計算最終結果
                 let finalVal = 0;
                 let finalText = '';
                 if (currentType === 'coin') {
@@ -337,11 +333,10 @@
                 } else {
                     finalVal = Math.floor(Math.random() * currentSides) + 1;
                     finalText = finalVal;
-                    currentTotal += finalVal; // 先把總和算好
+                    currentTotal += finalVal;
                 }
                 finalResults.push({ val: finalVal, text: finalText });
 
-                // 啟動閃爍
                 const interval = setInterval(() => {
                     if (currentType === 'coin') {
                         dieElement.textContent = Math.random() < 0.5 ? '正' : '反';
@@ -352,18 +347,15 @@
                 flickerIntervals.push(interval);
             }
 
-            // 決定這次一起停下來的時間 (0.5s ~ 1s)
             const stopDelay = ANIM_MIN_TOTAL_MS + Math.random() * (ANIM_MAX_TOTAL_MS - ANIM_MIN_TOTAL_MS);
 
-            // 時間到，一起停止
             setTimeout(() => {
                 for (let i = 0; i < qty; i++) {
-                    clearInterval(flickerIntervals[i]); // 停止閃爍
-                    diceElements[i].textContent = finalResults[i].text; // 顯示最終結果
-                    diceElements[i].classList.remove('rolling'); // 移除動畫
+                    clearInterval(flickerIntervals[i]);
+                    diceElements[i].textContent = finalResults[i].text;
+                    diceElements[i].classList.remove('rolling');
                 }
 
-                // 顯示總合並解鎖
                 if (currentType === 'dice') {
                     totalScoreDisplay.textContent = `總和：${currentTotal}`;
                     totalScoreDisplay.classList.add('show');
