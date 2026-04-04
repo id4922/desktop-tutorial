@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多功能擲骰子工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .section-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #7f8c8d;
+        }
+
+        .dice-types {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        .dice-btn {
+            background-color: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .dice-btn:hover {
+            background-color: #e0e6e8;
+        }
+
+        .dice-btn.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            text-align: center;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: #3498db;
+        }
+
+        #roll-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3);
+        }
+
+        #roll-btn:hover {
+            background-color: #27ae60;
+        }
+
+        #roll-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(46, 204, 113, 0.3);
+        }
+
+        .results-area {
+            min-height: 120px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px dashed #ccc;
+        }
+
+        .dice-results {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .die {
+            width: 60px;
+            height: 60px;
+            background-color: #34495e;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            animation: popIn 0.3s ease-out forwards;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+        .total-score {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e74c3c;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out 0.3s forwards;
+        }
+
+        @keyframes popIn {
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>擲骰子工具</h1>
+
+    <div class="container">
+        <div class="section-title">選擇骰子面數</div>
+        <div class="dice-types" id="dice-types">
+            <button class="dice-btn" data-sides="4">4 面</button>
+            <button class="dice-btn selected" data-sides="6">6 面</button>
+            <button class="dice-btn" data-sides="8">8 面</button>
+            <button class="dice-btn" data-sides="10">10 面</button>
+            <button class="dice-btn" data-sides="20">20 面</button>
+        </div>
+
+        <div class="section-title">選擇數量與擲骰</div>
+        <div class="controls">
+            <label for="dice-qty">顆數 (1-10):</label>
+            <input type="number" id="dice-qty" min="1" max="10" value="1">
+            <button id="roll-btn">擲骰！</button>
+        </div>
+
+        <div class="results-area">
+            <div class="dice-results" id="dice-results">
+                <span style="color: #aaa; padding-top: 10px;">準備擲骰...</span>
+            </div>
+            <div class="total-score" id="total-score"></div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化設定
+        let currentSides = 6;
+        const diceButtons = document.querySelectorAll('.dice-btn');
+        const qtyInput = document.getElementById('dice-qty');
+        const rollBtn = document.getElementById('roll-btn');
+        const resultsContainer = document.getElementById('dice-results');
+        const totalScoreDisplay = document.getElementById('total-score');
+
+        // 選擇骰子面數的事件監聽
+        diceButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // 移除所有按鈕的選取狀態
+                diceButtons.forEach(btn => btn.classList.remove('selected'));
+                // 替當前點擊的按鈕加上選取狀態
+                e.target.classList.add('selected');
+                // 更新當前選擇的面數
+                currentSides = parseInt(e.target.getAttribute('data-sides'));
+            });
+        });
+
+        // 限制輸入框的數值在 1 到 10 之間
+        qtyInput.addEventListener('change', (e) => {
+            let val = parseInt(e.target.value);
+            if (isNaN(val) || val < 1) {
+                e.target.value = 1;
+            } else if (val > 10) {
+                e.target.value = 10;
+            }
+        });
+
+        // 擲骰子按鈕事件
+        rollBtn.addEventListener('click', () => {
+            // 確保數量正確
+            let qty = parseInt(qtyInput.value);
+            if (isNaN(qty) || qty < 1) qty = 1;
+            if (qty > 10) qty = 10;
+            qtyInput.value = qty; // 寫回輸入框以防使用者輸入奇怪的字元
+
+            // 清空先前的結果
+            resultsContainer.innerHTML = '';
+            totalScoreDisplay.innerHTML = '';
+            totalScoreDisplay.style.animation = 'none'; // 重置動畫
+
+            let total = 0;
+
+            // 產生骰子結果
+            for (let i = 0; i < qty; i++) {
+                // 計算隨機亂數 (1 到 currentSides)
+                const rollResult = Math.floor(Math.random() * currentSides) + 1;
+                total += rollResult;
+
+                // 建立骰子視覺元素
+                const dieElement = document.createElement('div');
+                dieElement.classList.add('die');
+                dieElement.textContent = rollResult;
+                
+                // 為了讓動畫有錯落感，加入微小的延遲
+                dieElement.style.animationDelay = `${i * 0.05}s`;
+
+                resultsContainer.appendChild(dieElement);
+            }
+
+            // 顯示總和並重新觸發動畫
+            setTimeout(() => {
+                totalScoreDisplay.textContent = `總和：${total}`;
+                totalScoreDisplay.style.animation = 'fadeIn 0.5s ease-out forwards';
+            }, 50);
+        });
+    </script>
+</body>
+</html>
