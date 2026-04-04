@@ -3,39 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多功能擲骰子工具</title>
+    <title>懸念擲骰/投幣工具</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
+            font-family: 'Segoe UI', "Microsoft JhengHei", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
             color: #333;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 40px 20px;
             margin: 0;
+            min-height: 100vh;
         }
 
         h1 {
             color: #2c3e50;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .container {
             background-color: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
             max-width: 600px;
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* 讓容器可以伸展 */
+        }
+
+        .section {
+            margin-bottom: 25px;
             text-align: center;
         }
 
         .section-title {
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: bold;
             margin-bottom: 15px;
             color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .dice-types {
@@ -43,81 +53,69 @@
             justify-content: center;
             gap: 10px;
             flex-wrap: wrap;
-            margin-bottom: 25px;
         }
 
         .dice-btn {
-            background-color: #ecf0f1;
-            border: 2px solid #bdc3c7;
-            padding: 10px 20px;
+            background-color: #f8f9fa;
+            border: 2px solid #dee2e6;
+            padding: 10px 18px;
             font-size: 16px;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
             font-weight: bold;
-            color: #34495e;
+            color: #495057;
         }
 
         .dice-btn:hover {
-            background-color: #e0e6e8;
+            background-color: #e9ecef;
+            border-color: #adb5bd;
         }
 
         .dice-btn.selected {
-            background-color: #3498db;
+            background-color: #4a90e2;
             color: white;
-            border-color: #2980b9;
+            border-color: #357abd;
+            box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3);
         }
 
-        .controls {
+        .dice-btn[data-type="coin"].selected {
+            background-color: #f1c40f;
+            border-color: #f39c12;
+            color: #2c3e50;
+        }
+
+        .qty-control {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 30px;
+            gap: 12px;
+            font-weight: bold;
         }
 
         input[type="number"] {
-            width: 70px;
+            width: 80px;
             padding: 10px;
-            font-size: 16px;
-            border: 2px solid #bdc3c7;
-            border-radius: 8px;
+            font-size: 18px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
             text-align: center;
             outline: none;
         }
 
-        input[type="number"]:focus {
-            border-color: #3498db;
-        }
-
-        #roll-btn {
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3);
-        }
-
-        #roll-btn:hover {
-            background-color: #27ae60;
-        }
-
-        #roll-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 4px rgba(46, 204, 113, 0.3);
-        }
-
         .results-area {
-            min-height: 120px;
+            flex-grow: 1; /* 讓結果區佔滿剩餘空間 */
+            min-height: 180px;
             padding: 20px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            border: 1px dashed #ccc;
+            background-color: #fbfbfb;
+            border-radius: 12px;
+            border: 2px dashed #eee;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
         }
 
         .dice-results {
@@ -125,146 +123,277 @@
             justify-content: center;
             flex-wrap: wrap;
             gap: 15px;
-            margin-bottom: 20px;
+            width: 100%;
         }
 
+        /* 骰子基本樣式與定格動畫 */
         .die {
-            width: 60px;
-            height: 60px;
+            width: 65px;
+            height: 65px;
             background-color: #34495e;
             color: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
+            font-size: 26px;
             font-weight: bold;
-            border-radius: 12px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            animation: popIn 0.3s ease-out forwards;
-            opacity: 0;
-            transform: scale(0.5);
+            border-radius: 14px;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+            opacity: 1;
+            transition: background-color 0.1s;
+        }
+
+        /* 跑動閃爍中的樣式 */
+        .die.rolling {
+            animation: rollingFlicker 0.1s infinite linear;
+            background-color: #7f8c8d; /* 滾動時顏色變淺 */
+            filter: blur(1px); /* 增加模糊感 */
+        }
+
+        /* 銅板基本樣式 */
+        .die.coin-style {
+            background-color: #f39c12;
+            border-radius: 50%;
+            color: #fff;
+            border: 3px solid #d35400;
+        }
+
+        /* 銅板跑動樣式 */
+        .die.coin-style.rolling {
+            background-color: #f39c12;
+            animation: coinRollingFlicker 0.1s infinite linear;
         }
 
         .total-score {
-            font-size: 1.5em;
+            margin-top: 20px;
+            font-size: 1.6em;
             font-weight: bold;
             color: #e74c3c;
+            height: 1.6em;
             opacity: 0;
-            animation: fadeIn 0.5s ease-out 0.3s forwards;
+            transition: opacity 0.3s;
         }
 
-        @keyframes popIn {
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
+        .total-score.show {
+            opacity: 1;
         }
 
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-            }
+        #roll-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 15px rgba(46, 204, 113, 0.4);
+            width: 100%;
+            margin-top: auto; /* 推到最下面 */
+        }
+
+        #roll-btn:hover:not(:disabled) {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.5);
+        }
+
+        #roll-btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        #roll-btn:disabled {
+            background-color: #a8e6cf;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* 骰子跑動閃爍動畫 */
+        @keyframes rollingFlicker {
+            0% { transform: scale(1) rotate(0deg); filter: blur(1px); }
+            50% { transform: scale(1.05) rotate(5deg); filter: blur(1.5px); }
+            100% { transform: scale(1) rotate(0deg); filter: blur(1px); }
+        }
+
+        /* 銅板跑動閃爍動畫（快速翻轉感） */
+        @keyframes coinRollingFlicker {
+            0% { transform: scaleX(1) rotate(0deg); }
+            50% { transform: scaleX(0.1) rotate(180deg); }
+            100% { transform: scaleX(1) rotate(360deg); }
         }
     </style>
 </head>
 <body>
 
-    <h1>擲骰子工具</h1>
+    <h1>懸念擲骰 / 投幣工具</h1>
 
     <div class="container">
-        <div class="section-title">選擇骰子面數</div>
-        <div class="dice-types" id="dice-types">
-            <button class="dice-btn" data-sides="4">4 面</button>
-            <button class="dice-btn selected" data-sides="6">6 面</button>
-            <button class="dice-btn" data-sides="8">8 面</button>
-            <button class="dice-btn" data-sides="10">10 面</button>
-            <button class="dice-btn" data-sides="20">20 面</button>
+        <div class="section">
+            <div class="section-title">選擇類型</div>
+            <div class="dice-types" id="dice-types">
+                <button class="dice-btn selected" data-sides="6" data-type="dice">6 面</button>
+                <button class="dice-btn" data-sides="4" data-type="dice">4 面</button>
+                <button class="dice-btn" data-sides="8" data-type="dice">8 面</button>
+                <button class="dice-btn" data-sides="10" data-type="dice">10 面</button>
+                <button class="dice-btn" data-sides="20" data-type="dice">20 面</button>
+                <button class="dice-btn" data-sides="2" data-type="coin">銅板</button>
+            </div>
         </div>
 
-        <div class="section-title">選擇數量與擲骰</div>
-        <div class="controls">
-            <label for="dice-qty">顆數 (1-10):</label>
-            <input type="number" id="dice-qty" min="1" max="10" value="1">
-            <button id="roll-btn">擲骰！</button>
+        <div class="section">
+            <div class="qty-control">
+                <label for="dice-qty">數量 (1-10):</label>
+                <input type="number" id="dice-qty" min="1" max="10" value="1">
+            </div>
         </div>
 
         <div class="results-area">
             <div class="dice-results" id="dice-results">
-                <span style="color: #aaa; padding-top: 10px;">準備擲骰...</span>
+                <span style="color: #aaa;">點擊下方按鈕開始產生懸念</span>
             </div>
             <div class="total-score" id="total-score"></div>
         </div>
+
+        <button id="roll-btn">擲骰 / 投幣！</button>
     </div>
 
     <script>
-        // 初始化設定
         let currentSides = 6;
+        let currentType = 'dice';
+        let isRolling = false; // 用於鎖定按鈕
+
         const diceButtons = document.querySelectorAll('.dice-btn');
         const qtyInput = document.getElementById('dice-qty');
         const rollBtn = document.getElementById('roll-btn');
         const resultsContainer = document.getElementById('dice-results');
         const totalScoreDisplay = document.getElementById('total-score');
 
-        // 選擇骰子面數的事件監聽
+        // 定義動畫時間範圍 (毫秒)
+        const ANIM_MIN_TOTAL_MS = 500;
+        const ANIM_MAX_TOTAL_MS = 1000;
+        const FLICKER_INTERVAL_MS = 50; // 跑動時數字切換頻率
+
+        // 類型切換邏輯
         diceButtons.forEach(button => {
             button.addEventListener('click', (e) => {
-                // 移除所有按鈕的選取狀態
+                if (isRolling) return; // 跑動中不可切換
                 diceButtons.forEach(btn => btn.classList.remove('selected'));
-                // 替當前點擊的按鈕加上選取狀態
                 e.target.classList.add('selected');
-                // 更新當前選擇的面數
+                
                 currentSides = parseInt(e.target.getAttribute('data-sides'));
+                currentType = e.target.getAttribute('data-type');
             });
         });
 
-        // 限制輸入框的數值在 1 到 10 之間
+        // 數量輸入檢查
         qtyInput.addEventListener('change', (e) => {
-            let val = parseInt(e.target.value);
-            if (isNaN(val) || val < 1) {
-                e.target.value = 1;
-            } else if (val > 10) {
-                e.target.value = 10;
+            if (isRolling) { // 跑動中強制寫回原值
+                e.target.value = e.target.getAttribute('data-last-val') || 1;
+                return;
             }
+            let val = parseInt(e.target.value);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 10) val = 10;
+            e.target.value = val;
+            e.target.setAttribute('data-last-val', val); // 記錄有效值
         });
 
-        // 擲骰子按鈕事件
+        // 擲骰動作
         rollBtn.addEventListener('click', () => {
-            // 確保數量正確
-            let qty = parseInt(qtyInput.value);
-            if (isNaN(qty) || qty < 1) qty = 1;
+            if (isRolling) return;
+            isRolling = true;
+            rollBtn.disabled = true; // 禁用按鈕
+            qtyInput.disabled = true; // 禁用數量輸入
+
+            let qty = parseInt(qtyInput.value) || 1;
             if (qty > 10) qty = 10;
-            qtyInput.value = qty; // 寫回輸入框以防使用者輸入奇怪的字元
 
-            // 清空先前的結果
             resultsContainer.innerHTML = '';
-            totalScoreDisplay.innerHTML = '';
-            totalScoreDisplay.style.animation = 'none'; // 重置動畫
+            totalScoreDisplay.classList.remove('show');
+            
+            let finalResults = [];
+            let diceElements = [];
+            let flickerIntervals = [];
 
-            let total = 0;
-
-            // 產生骰子結果
+            // 1. 初始化所有骰子元素，全部進入 'rolling' 狀態
             for (let i = 0; i < qty; i++) {
-                // 計算隨機亂數 (1 到 currentSides)
-                const rollResult = Math.floor(Math.random() * currentSides) + 1;
-                total += rollResult;
-
-                // 建立骰子視覺元素
                 const dieElement = document.createElement('div');
                 dieElement.classList.add('die');
-                dieElement.textContent = rollResult;
+                dieElement.classList.add('rolling'); // 加入跑動動畫
+                if (currentType === 'coin') dieElement.classList.add('coin-style');
                 
-                // 為了讓動畫有錯落感，加入微小的延遲
-                dieElement.style.animationDelay = `${i * 0.05}s`;
-
                 resultsContainer.appendChild(dieElement);
+                diceElements.push(dieElement);
+
+                // 計算最終結果並儲存
+                let finalVal = 0;
+                let finalText = '';
+                if (currentType === 'coin') {
+                    finalVal = Math.random() < 0.5; // 用布林值存
+                    finalText = finalVal ? '正' : '反';
+                } else {
+                    finalVal = Math.floor(Math.random() * currentSides) + 1;
+                    finalText = finalVal;
+                }
+                finalResults.push({ val: finalVal, text: finalText });
+
+                // 啟動快速閃爍亂數的 Interval
+                const interval = setInterval(() => {
+                    if (currentType === 'coin') {
+                        dieElement.textContent = Math.random() < 0.5 ? '正' : '反';
+                    } else {
+                        dieElement.textContent = Math.floor(Math.random() * currentSides) + 1;
+                    }
+                }, FLICKER_INTERVAL_MS);
+                flickerIntervals.push(interval);
             }
 
-            // 顯示總和並重新觸發動畫
-            setTimeout(() => {
-                totalScoreDisplay.textContent = `總和：${total}`;
-                totalScoreDisplay.style.animation = 'fadeIn 0.5s ease-out forwards';
-            }, 50);
+            // 2. 計算逐一確定的時間點
+            // 確保最後一顆骰子在 0.5s 到 1s 之間停止
+            const totalDuration = ANIM_MIN_TOTAL_MS + Math.random() * (ANIM_MAX_TOTAL_MS - ANIM_MIN_TOTAL_MS);
+            // 每一顆骰子停止的時間間隔
+            const stopInterval = qty > 1 ? totalDuration / (qty - 1) : 0;
+
+            let currentTotal = 0;
+
+            // 3. 依序設定定格排程
+            for (let i = 0; i < qty; i++) {
+                const stopDelay = qty > 1 ? i * stopInterval : ANIM_MIN_TOTAL_MS; // 只有一顆時，至少跑 0.5s
+
+                setTimeout(() => {
+                    // 停止該骰子的閃爍 Interval
+                    clearInterval(flickerIntervals[i]);
+                    
+                    // 定格最終結果
+                    const result = finalResults[i];
+                    diceElements[i].textContent = result.text;
+                    diceElements[i].classList.remove('rolling'); // 移除跑動動畫
+                    
+                    // 累加總合 (骰子才有)
+                    if (currentType === 'dice') {
+                        currentTotal += result.val;
+                    }
+
+                    // 如果是最後一顆，顯示總合並解鎖
+                    if (i === qty - 1) {
+                        setTimeout(() => {
+                            if (currentType === 'dice') {
+                                totalScoreDisplay.textContent = `總和：${currentTotal}`;
+                                totalScoreDisplay.classList.add('show');
+                            }
+                            // 解鎖控制項
+                            isRolling = false;
+                            rollBtn.disabled = false;
+                            qtyInput.disabled = false;
+                        }, 100); // 稍微延遲顯示總和
+                    }
+                }, stopDelay);
+            }
         });
+
+        // 初始化記錄有效值
+        qtyInput.setAttribute('data-last-val', qtyInput.value);
     </script>
 </body>
 </html>
