@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 鎖定螢幕縮放，防止在手機上滑動時網頁跟著滾動 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>單手搖桿反向射擊測試</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #222;
+            /* 停用預設的觸控行為（如重新整理、滑動上一頁） */
+            touch-action: none; 
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 讓畫布填滿整個螢幕
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // 遊戲物件設定
+    const player = { x: canvas.width / 2, y: canvas.height / 2, radius: 15, speed: 3 };
+    const bullets = [];
+    const joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0, maxRadius: 50 };
+    
+    let lastShotTime = 0;
+    const SHOT_DELAY = 500; // 500毫秒 = 每秒2發
+
+    // --- 觸控事件監聽 ---
+    canvas.addEventListener('touchstart', e => {
+        const touch = e.touches[0];
+        joystick.originX = touch.clientX;
+        joystick.originY = touch.clientY;
+        joystick.currentX = touch.clientX;
+        joystick.currentY = touch.clientY;
+        joystick.active = true;
+    });
+
+    canvas.addEventListener('touchmove', e => {
+        if (!joystick.active) return;
+        const touch = e.touches[0];
+        
+        // 計算搖桿拖曳距離
+        const dx = touch.clientX - joystick.originX;
+        const dy = touch.clientY - joystick.originY;
+        const distance = Math.hypot(dx, dy);
+
+        // 限制搖桿圓點不要超出外圈
+        if (distance > joystick.maxRadius) {
+            const angle = Math.atan2(dy, dx);
+            joystick.currentX = joystick.originX + Math.cos(angle) * joystick.maxRadius;
+            joystick.currentY = joystick.originY + Math.sin(angle) * joystick.maxRadius;
+        } else {
+            joystick.currentX = touch.clientX;
+            joystick.currentY = touch.clientY;
+        }
+    });
+
+    canvas.addEventListener('touchend', () => {
+        joystick.active = false;
+    });
+    canvas.addEventListener('touchcancel', () => {
+        joystick.active = false;
+    });
+
+    // --- 遊戲邏輯更新 ---
+    function update() {
+        const now = Date.now();
+
+        if (joystick.active) {
+            const dx = joystick.currentX - joystick.originX;
+            const dy = joystick.currentY - joystick.originY;
+            const distance = Math.hypot(dx, dy);
+
+            // 設定一個小小的死區 (Deadzone)，避免手指輕微抖動就移動
+            if (distance > 5) {
+                const angle = Math.atan2(dy, dx); // 取得搖桿方向的弧度
+
+                // 1. 移動玩家
+                player.x += Math.cos(angle) * player.speed;
+                player.y += Math.sin(angle) * player.speed;
+
+                // 邊界限制（不讓玩家跑出螢幕）
+                player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+                player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+                // 2. 反向射擊
+                if (now - lastShotTime >= SHOT_DELAY) {
+                    const shootAngle = angle + Math.PI; // 加上 180度(PI) 就是完全反方向
+                    bullets.push({
+                        x: player.x,
+                        y: player.y,
+                        vx: Math.cos(shootAngle) * 8, // 子彈速度 8
+                        vy: Math.sin(shootAngle) * 8,
+                        radius: 5
+                    });
+                    lastShotTime = now;
+                }
+            }
+        }
+
+        // 更新子彈位置
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i];
+            b.x += b.vx;
+            b.y += b.vy;
+
+            // 如果子彈飛出螢幕，就從陣列中移除以節省效能
+            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                bullets.splice(i, 1);
+            }
+        }
+    }
+
+    // --- 繪製畫面 ---
+    function draw() {
+        // 清空畫布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 畫子彈 (黃色)
+        ctx.fillStyle = '#ffcc00';
+        bullets.forEach(b => {
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 畫玩家 (藍色)
+        ctx.fillStyle = '#00aaff';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 畫虛擬搖桿 (半透明白色)
+        if (joystick.active) {
+            // 外圈
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(joystick.originX, joystick.originY, joystick.maxRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 內圈(搖桿本體)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.beginPath();
+            ctx.arc(joystick.currentX, joystick.currentY, 20, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // --- 遊戲迴圈 ---
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    // 啟動遊戲
+    loop();
+</script>
+
+</body>
+</html>
