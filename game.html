@@ -2,20 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 鎖定螢幕縮放，防止在手機上滑動時網頁跟著滾動 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>單手搖桿反向射擊測試</title>
+    <title>模組化武器系統測試</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #222;
-            /* 停用預設的觸控行為（如重新整理、滑動上一頁） */
-            touch-action: none; 
-        }
-        canvas {
-            display: block;
-        }
+        body { margin: 0; overflow: hidden; background-color: #222; touch-action: none; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
@@ -25,153 +16,255 @@
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-
-    // 讓畫布填滿整個螢幕
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize);
     resize();
 
-    // 遊戲物件設定
-    const player = { x: canvas.width / 2, y: canvas.height / 2, radius: 15, speed: 3 };
-    const bullets = [];
-    const joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0, maxRadius: 50 };
-    
-    let lastShotTime = 0;
-    const SHOT_DELAY = 500; // 500毫秒 = 每秒2發
+    // 遊戲全域陣列，用來存放所有的攻擊判定物
+    let projectiles = [];
 
-    // --- 觸控事件監聽 ---
-    canvas.addEventListener('touchstart', e => {
-        const touch = e.touches[0];
-        joystick.originX = touch.clientX;
-        joystick.originY = touch.clientY;
-        joystick.currentX = touch.clientX;
-        joystick.currentY = touch.clientY;
-        joystick.active = true;
-    });
+    // ==========================================
+    // 武器系統架構 (Weapon System)
+    // ==========================================
 
-    canvas.addEventListener('touchmove', e => {
-        if (!joystick.active) return;
-        const touch = e.touches[0];
-        
-        // 計算搖桿拖曳距離
-        const dx = touch.clientX - joystick.originX;
-        const dy = touch.clientY - joystick.originY;
-        const distance = Math.hypot(dx, dy);
-
-        // 限制搖桿圓點不要超出外圈
-        if (distance > joystick.maxRadius) {
-            const angle = Math.atan2(dy, dx);
-            joystick.currentX = joystick.originX + Math.cos(angle) * joystick.maxRadius;
-            joystick.currentY = joystick.originY + Math.sin(angle) * joystick.maxRadius;
-        } else {
-            joystick.currentX = touch.clientX;
-            joystick.currentY = touch.clientY;
+    // 1. 武器基底類別 (所有武器的爸爸)
+    class Weapon {
+        constructor(player) {
+            this.player = player;
+            this.cooldown = 1000; // 預設冷卻時間 1 秒
+            this.lastShotTime = 0;
         }
-    });
+        
+        // 檢查是否可以攻擊
+        tryAttack(angle, now) {
+            if (now - this.lastShotTime >= this.cooldown) {
+                this.attack(angle);
+                this.lastShotTime = now;
+            }
+        }
 
-    canvas.addEventListener('touchend', () => {
-        joystick.active = false;
-    });
-    canvas.addEventListener('touchcancel', () => {
-        joystick.active = false;
-    });
+        // 實際攻擊邏輯 (交給子類別去實作)
+        attack(angle) {
+            console.log("基礎武器沒有攻擊效果");
+        }
+    }
 
-    // --- 遊戲邏輯更新 ---
-    function update() {
-        const now = Date.now();
+    // 2. 槍手武器：發射直線子彈
+    class Gun extends Weapon {
+        constructor(player) {
+            super(player);
+            this.cooldown = 500; // 0.5秒一發
+        }
+        attack(angle) {
+            projectiles.push(new Bullet(this.player.x, this.player.y, angle));
+        }
+    }
 
-        if (joystick.active) {
-            const dx = joystick.currentX - joystick.originX;
-            const dy = joystick.currentY - joystick.originY;
-            const distance = Math.hypot(dx, dy);
+    // 3. 劍士武器：生成短暫的近戰判定區
+    class Sword extends Weapon {
+        constructor(player) {
+            super(player);
+            this.cooldown = 800; // 0.8秒揮一次
+        }
+        attack(angle) {
+            projectiles.push(new Slash(this.player.x, this.player.y, angle));
+        }
+    }
 
-            // 設定一個小小的死區 (Deadzone)，避免手指輕微抖動就移動
-            if (distance > 5) {
-                const angle = Math.atan2(dy, dx); // 取得搖桿方向的弧度
+    // 4. 魔法師武器：發射慢速火球，抵達後爆炸
+    class Wand extends Weapon {
+        constructor(player) {
+            super(player);
+            this.cooldown = 1200; // 1.2秒一發
+        }
+        attack(angle) {
+            projectiles.push(new Fireball(this.player.x, this.player.y, angle));
+        }
+    }
 
-                // 1. 移動玩家
-                player.x += Math.cos(angle) * player.speed;
-                player.y += Math.sin(angle) * player.speed;
+    // ==========================================
+    // 攻擊判定物架構 (Projectiles & Hitboxes)
+    // ==========================================
 
-                // 邊界限制（不讓玩家跑出螢幕）
-                player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
-                player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+    // 槍的子彈
+    class Bullet {
+        constructor(x, y, angle) {
+            this.x = x; this.y = y;
+            this.vx = Math.cos(angle) * 8;
+            this.vy = Math.sin(angle) * 8;
+            this.radius = 5;
+            this.isDead = false;
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            // 飛出螢幕就標記死亡
+            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.isDead = true;
+        }
+        draw(ctx) {
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+        }
+    }
 
-                // 2. 反向射擊
-                if (now - lastShotTime >= SHOT_DELAY) {
-                    const shootAngle = angle + Math.PI; // 加上 180度(PI) 就是完全反方向
-                    bullets.push({
-                        x: player.x,
-                        y: player.y,
-                        vx: Math.cos(shootAngle) * 8, // 子彈速度 8
-                        vy: Math.sin(shootAngle) * 8,
-                        radius: 5
-                    });
-                    lastShotTime = now;
+    // 劍的揮砍 (壽命極短的扇形/圓形)
+    class Slash {
+        constructor(x, y, angle) {
+            this.x = x; this.y = y;
+            this.angle = angle;
+            this.radius = 40; // 攻擊範圍
+            this.lifeTime = 150; // 存在 150 毫秒
+            this.spawnTime = Date.now();
+            this.isDead = false;
+        }
+        update() {
+            if (Date.now() - this.spawnTime > this.lifeTime) this.isDead = true;
+        }
+        draw(ctx) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.beginPath(); 
+            // 畫一個跟著玩家的半月形或圓形範圍
+            ctx.arc(this.x + Math.cos(this.angle)*20, this.y + Math.sin(this.angle)*20, this.radius, 0, Math.PI * 2); 
+            ctx.fill();
+        }
+    }
+
+    // 魔法的火球 (飛行後變爆炸圈)
+    class Fireball {
+        constructor(x, y, angle) {
+            this.x = x; this.y = y;
+            this.vx = Math.cos(angle) * 4; // 飛得慢
+            this.vy = Math.sin(angle) * 4;
+            this.radius = 8;
+            this.isDead = false;
+            this.lifeTime = 1000; // 飛 1 秒後爆炸
+            this.spawnTime = Date.now();
+            this.exploded = false;
+        }
+        update() {
+            if (!this.exploded) {
+                this.x += this.vx; this.y += this.vy;
+                if (Date.now() - this.spawnTime > this.lifeTime) {
+                    this.exploded = true;
+                    this.radius = 60; // 爆炸半徑
+                    this.spawnTime = Date.now(); // 重設時間給爆炸動畫
+                }
+            } else {
+                // 爆炸殘留 0.3 秒
+                if (Date.now() - this.spawnTime > 300) this.isDead = true;
+            }
+        }
+        draw(ctx) {
+            if (!this.exploded) {
+                ctx.fillStyle = '#ff4400';
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+            } else {
+                ctx.fillStyle = 'rgba(255, 68, 0, 0.5)';
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    }
+
+    // ==========================================
+    // 玩家與搖桿邏輯
+    // ==========================================
+
+    class Player {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            this.radius = 15;
+            this.speed = 3;
+            
+            // 🔥 在這裡切換職業！ 🔥
+            // 試著把 new Gun(this) 換成 new Sword(this) 或 new Wand(this)
+            this.weapon = new Gun(this); 
+        }
+        
+        update(joystick, now) {
+            if (joystick.active) {
+                const dx = joystick.currentX - joystick.originX;
+                const dy = joystick.currentY - joystick.originY;
+                const distance = Math.hypot(dx, dy);
+
+                if (distance > 5) {
+                    const moveAngle = Math.atan2(dy, dx);
+                    
+                    // 移動
+                    this.x += Math.cos(moveAngle) * this.speed;
+                    this.y += Math.sin(moveAngle) * this.speed;
+                    this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                    this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                    // 攻擊 (反方向)
+                    const shootAngle = moveAngle + Math.PI;
+                    this.weapon.tryAttack(shootAngle, now);
                 }
             }
         }
 
-        // 更新子彈位置
-        for (let i = bullets.length - 1; i >= 0; i--) {
-            const b = bullets[i];
-            b.x += b.vx;
-            b.y += b.vy;
-
-            // 如果子彈飛出螢幕，就從陣列中移除以節省效能
-            if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-                bullets.splice(i, 1);
-            }
+        draw(ctx) {
+            ctx.fillStyle = '#00aaff';
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
         }
     }
 
-    // --- 繪製畫面 ---
-    function draw() {
-        // 清空畫布
+    // 初始化設定
+    const player = new Player(canvas.width / 2, canvas.height / 2);
+    const joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0, maxRadius: 50 };
+
+    // 觸控事件
+    canvas.addEventListener('touchstart', e => {
+        const touch = e.touches[0];
+        joystick.originX = touch.clientX; joystick.originY = touch.clientY;
+        joystick.currentX = touch.clientX; joystick.currentY = touch.clientY;
+        joystick.active = true;
+    });
+    canvas.addEventListener('touchmove', e => {
+        if (!joystick.active) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - joystick.originX; const dy = touch.clientY - joystick.originY;
+        if (Math.hypot(dx, dy) > joystick.maxRadius) {
+            const angle = Math.atan2(dy, dx);
+            joystick.currentX = joystick.originX + Math.cos(angle) * joystick.maxRadius;
+            joystick.currentY = joystick.originY + Math.sin(angle) * joystick.maxRadius;
+        } else {
+            joystick.currentX = touch.clientX; joystick.currentY = touch.clientY;
+        }
+    });
+    ['touchend', 'touchcancel'].forEach(evt => canvas.addEventListener(evt, () => joystick.active = false));
+
+    // 遊戲迴圈
+    function loop() {
+        const now = Date.now();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 畫子彈 (黃色)
-        ctx.fillStyle = '#ffcc00';
-        bullets.forEach(b => {
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-            ctx.fill();
-        });
+        // 更新與繪製玩家
+        player.update(joystick, now);
+        player.draw(ctx);
 
-        // 畫玩家 (藍色)
-        ctx.fillStyle = '#00aaff';
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-        ctx.fill();
+        // 更新與繪製所有攻擊判定物
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i];
+            
+            // 劍的判定區需要跟著玩家走
+            if (p instanceof Slash) {
+                p.x = player.x; p.y = player.y;
+            }
 
-        // 畫虛擬搖桿 (半透明白色)
-        if (joystick.active) {
-            // 外圈
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(joystick.originX, joystick.originY, joystick.maxRadius, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // 內圈(搖桿本體)
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.beginPath();
-            ctx.arc(joystick.currentX, joystick.currentY, 20, 0, Math.PI * 2);
-            ctx.fill();
+            p.update();
+            p.draw(ctx);
+            if (p.isDead) projectiles.splice(i, 1);
         }
-    }
 
-    // --- 遊戲迴圈 ---
-    function loop() {
-        update();
-        draw();
+        // 畫搖桿
+        if (joystick.active) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(joystick.originX, joystick.originY, joystick.maxRadius, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.beginPath(); ctx.arc(joystick.currentX, joystick.currentY, 20, 0, Math.PI * 2); ctx.fill();
+        }
+
         requestAnimationFrame(loop);
     }
-
-    // 啟動遊戲
     loop();
 </script>
 
