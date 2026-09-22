@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>單手 ARPG 角色行為抽換原型</title>
+  <title>單手 ARPG 角色行為抽換原型 (位移衰減修正)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body, html { width: 100%; height: 100%; overflow: hidden; background: #121212; touch-action: none; font-family: sans-serif; }
@@ -45,7 +45,7 @@
     resize();
 
     // ==========================================
-    // 1. 單手觸控手勢解析器 (Input Adapter)
+    // 1. 單手觸控手勢解析器
     // ==========================================
     class GestureInput {
       constructor(domElement, onAction) {
@@ -63,7 +63,7 @@
 
         this.DEADZONE = 10;
         this.FLICK_TIME = 250;
-        this.FLICK_DIST = 40;
+        this.FLICK_DIST = 35;
         this.HOLD_TIME = 450;
 
         this.init();
@@ -138,7 +138,7 @@
     }
 
     // ==========================================
-    // 2. 特效與彈道容器
+    // 2. 特效容器
     // ==========================================
     const particles = [];
     function addParticle(p) { particles.push(p); }
@@ -163,6 +163,9 @@
       }
 
       onAction(type, data) {
+        // 若處於跳躍/衝刺狀態中，忽略拖曳指令
+        if (this.hero.isDashing) return;
+
         if (type === 'DRAG') {
           this.isSpinning = true;
           this.hero.vx = data.dirX * 3.5;
@@ -173,20 +176,22 @@
           this.hero.vy = 0;
           if (this.isSpinning) {
             this.isSpinning = false;
-            // 放手釋放撼地衝擊
             addParticle(new Shockwave(this.hero.x, this.hero.y, 80 + this.rage * 0.5, '#e67e22'));
             this.rage = 0;
           }
         } else if (type === 'FLICK') {
-          // 快速輕彈：跳斬 (躍進一段距離)
-          this.hero.x += data.dirX * 120;
-          this.hero.y += data.dirY * 120;
-          addParticle(new Shockwave(this.hero.x, this.hero.y, 60, '#f39c12'));
+          this.isSpinning = false;
+          this.rage = 0;
+          // 觸發躍擊衝刺（初速 16，衰減率 0.88，位移約 120px 後停住）
+          this.hero.dash(data.dirX, data.dirY, 16, 0.88, () => {
+            // 著地瞬間爆發震波
+            addParticle(new Shockwave(this.hero.x, this.hero.y, 70, '#f39c12'));
+          });
         }
       }
 
       update(dt) {
-        if (this.isSpinning) {
+        if (this.isSpinning && !this.hero.isDashing) {
           this.spinAngle += 0.3;
           if (Math.random() < 0.3) {
             addParticle(new Spark(this.hero.x, this.hero.y, '#e74c3c'));
@@ -197,10 +202,12 @@
       render(ctx) {
         ctx.fillStyle = '#c0392b';
         ctx.beginPath();
-        ctx.arc(this.hero.x, this.hero.y, 20, 0, Math.PI * 2);
+        // 若處於跳躍衝刺中，稍微放大半徑模擬離地高度
+        const radius = this.hero.isDashing ? 24 : 20;
+        ctx.arc(this.hero.x, this.hero.y, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        if (this.isSpinning) {
+        if (this.isSpinning && !this.hero.isDashing) {
           ctx.strokeStyle = '#f39c12';
           ctx.lineWidth = 4;
           ctx.beginPath();
@@ -219,6 +226,8 @@
       }
 
       onAction(type, data) {
+        if (this.hero.isDashing) return;
+
         if (type === 'DRAG') {
           this.isMoving = true;
           this.hero.vx = data.dirX * 4.5;
@@ -228,20 +237,19 @@
           this.hero.vx = 0;
           this.hero.vy = 0;
         } else if (type === 'FLICK') {
-          // 快速輕彈：翻滾 + 原地留下緩速陷阱
+          this.isMoving = false;
+          // 原地留下一顆緩速陷阱
           addParticle(new Trap(this.hero.x, this.hero.y));
-          this.hero.x += data.dirX * 100;
-          this.hero.y += data.dirY * 100;
+          // 翻滾位移（初速 18，衰減率 0.86，快速平滑停下）
+          this.hero.dash(data.dirX, data.dirY, 18, 0.86);
         }
       }
 
       update(dt) {
-        // 站樁自動射擊
-        if (!this.isMoving) {
+        if (!this.isMoving && !this.hero.isDashing) {
           this.shootTimer += dt;
-          if (this.shootTimer > 180) { // 射擊間隔
+          if (this.shootTimer > 180) {
             this.shootTimer = 0;
-            // 朝四周散射箭矢
             for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
               addParticle(new Arrow(this.hero.x, this.hero.y, Math.cos(a), Math.sin(a)));
             }
@@ -257,8 +265,7 @@
         ctx.arc(this.hero.x, this.hero.y, 18, 0, Math.PI * 2);
         ctx.fill();
 
-        // 站樁蓄勢提示圈
-        if (!this.isMoving) {
+        if (!this.isMoving && !this.hero.isDashing) {
           ctx.strokeStyle = 'rgba(46, 204, 113, 0.4)';
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -336,7 +343,7 @@
     }
 
     // ==========================================
-    // 5. 主角實體 (Hero Entity)
+    // 5. 主角實體 (含 Dash 狀態機與摩擦阻尼)
     // ==========================================
     class Hero {
       constructor(x, y) {
@@ -345,19 +352,53 @@
         this.vx = 0;
         this.vy = 0;
         this.strategy = null;
+
+        // 衝刺/翻滾狀態參數
+        this.isDashing = false;
+        this.dashDecel = 0.88;
+        this.onDashEnd = null;
       }
 
       setStrategy(strategy) {
         this.strategy = strategy;
+        this.vx = 0;
+        this.vy = 0;
+        this.isDashing = false;
       }
 
       handleAction(type, data) {
         if (this.strategy) this.strategy.onAction(type, data);
       }
 
+      dash(dirX, dirY, speed, decel = 0.88, onEnd = null) {
+        this.isDashing = true;
+        this.dashDecel = decel;
+        this.onDashEnd = onEnd;
+        this.vx = dirX * speed;
+        this.vy = dirY * speed;
+      }
+
       update(dt) {
+        // 若在衝刺/翻滾狀態中，每幀套用摩擦阻尼快速減速
+        if (this.isDashing) {
+          this.vx *= this.dashDecel;
+          this.vy *= this.dashDecel;
+
+          // 速度衰減到足夠小，認定為位移結束並完全停下
+          if (Math.hypot(this.vx, this.vy) < 0.4) {
+            this.vx = 0;
+            this.vy = 0;
+            this.isDashing = false;
+            if (this.onDashEnd) {
+              this.onDashEnd();
+              this.onDashEnd = null;
+            }
+          }
+        }
+
         this.x += this.vx;
         this.y += this.vy;
+
         // 邊界限制
         this.x = Math.max(20, Math.min(canvas.width - 20, this.x));
         this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
@@ -410,17 +451,15 @@
       const dt = now - lastTime;
       lastTime = now;
 
-      // 邏輯更新
       hero.update(dt);
       for (let i = particles.length - 1; i >= 0; i--) {
         particles[i].update();
         if (!particles[i].alive) particles.splice(i, 1);
       }
 
-      // 畫面繪製
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // 繪製格線背景
+      // 繪製網格背景
       ctx.strokeStyle = '#1e1e1e';
       ctx.lineWidth = 1;
       const gridSize = 40;
@@ -431,7 +470,6 @@
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
       }
 
-      // 繪製粒子與角色
       particles.forEach(p => p.render(ctx));
       hero.render(ctx);
 
