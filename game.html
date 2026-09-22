@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>單手 ARPG 角色行為抽換原型 (位移衰減修正)</title>
+  <title>單手 ARPG - 支援長按與連點</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body, html { width: 100%; height: 100%; overflow: hidden; background: #121212; touch-action: none; font-family: sans-serif; }
@@ -13,7 +13,7 @@
       display: flex; justify-content: space-between; align-items: flex-start;
       pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     }
-    .info { font-size: 14px; line-height: 1.5; }
+    .info { font-size: 13px; line-height: 1.6; }
     .switch-btn {
       pointer-events: auto; background: #e67e22; color: #fff; border: none;
       padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;
@@ -25,8 +25,8 @@
 
   <div id="ui">
     <div class="info">
-      <div>當前職業：<strong id="roleName">野蠻人</strong></div>
-      <div id="roleHint" style="font-size: 12px; color: #ccc;">拖曳: 旋風斬 | 放手: 撼地震擊 | 輕彈(Flick): 躍擊</div>
+      <div>當前職業：<strong id="roleName" style="color: #f39c12; font-size: 15px;">野蠻人</strong></div>
+      <div id="roleHint" style="color: #bbb;"></div>
     </div>
     <button class="switch-btn" id="switchBtn">切換職業</button>
   </div>
@@ -45,7 +45,7 @@
     resize();
 
     // ==========================================
-    // 1. 單手觸控手勢解析器
+    // 1. 全功能單手觸控解析器 (支援 Tap, DoubleTap, Hold, Drag, Flick)
     // ==========================================
     class GestureInput {
       constructor(domElement, onAction) {
@@ -56,95 +56,161 @@
         this.startX = 0;
         this.startY = 0;
         this.startTime = 0;
-        this.currentX = 0;
-        this.currentY = 0;
         this.isDragging = false;
+        this.isHolding = false;
         this.holdTimer = null;
 
-        this.DEADZONE = 10;
-        this.FLICK_TIME = 250;
-        this.FLICK_DIST = 35;
-        this.HOLD_TIME = 450;
+        // 連點記錄
+        this.lastTapTime = 0;
+        this.lastTapX = 0;
+        this.lastTapY = 0;
+
+        // 參數閥值
+        this.DEADZONE = 12;
+        this.HOLD_DELAY = 380;       // 按住多久算長按
+        this.DOUBLE_TAP_DELAY = 280; // 連點間隔時間 (ms)
+        this.FLICK_TIME = 220;
+        this.FLICK_DIST = 40;
 
         this.init();
       }
 
       init() {
-        this.dom.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-        this.dom.addEventListener('pointermove', (e) => this.onPointerMove(e));
-        this.dom.addEventListener('pointerup', (e) => this.onPointerUp(e));
-        this.dom.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+        this.dom.addEventListener('pointerdown', (e) => this.onDown(e));
+        this.dom.addEventListener('pointermove', (e) => this.onMove(e));
+        this.dom.addEventListener('pointerup', (e) => this.onUp(e));
+        this.dom.addEventListener('pointercancel', (e) => this.onUp(e));
       }
 
-      onPointerDown(e) {
+      onDown(e) {
         if (this.touchId !== null) return;
         this.touchId = e.pointerId;
         this.startX = e.clientX;
         this.startY = e.clientY;
-        this.currentX = e.clientX;
-        this.currentY = e.clientY;
         this.startTime = performance.now();
         this.isDragging = false;
+        this.isHolding = false;
 
+        // 啟動長按檢測
         this.holdTimer = setTimeout(() => {
           if (!this.isDragging) {
-            this.onAction('HOLD', { x: this.startX, y: this.startY });
+            this.isHolding = true;
+            this.onAction('HOLD_START', { x: this.startX, y: this.startY });
           }
-        }, this.HOLD_TIME);
+        }, this.HOLD_DELAY);
       }
 
-      onPointerMove(e) {
+      onMove(e) {
         if (e.pointerId !== this.touchId) return;
-        this.currentX = e.clientX;
-        this.currentY = e.clientY;
 
-        const dx = this.currentX - this.startX;
-        const dy = this.currentY - this.startY;
+        const dx = e.clientX - this.startX;
+        const dy = e.clientY - this.startY;
         const dist = Math.hypot(dx, dy);
+
+        // 如果已經在長按中，可以當作蓄力轉向
+        if (this.isHolding) {
+          this.onAction('HOLD_AIM', { dx, dy, dirX: dx / (dist || 1), dirY: dy / (dist || 1) });
+          return;
+        }
 
         if (dist > this.DEADZONE) {
           clearTimeout(this.holdTimer);
           this.isDragging = true;
           this.onAction('DRAG', {
-            dx: dx,
-            dy: dy,
-            dist: dist,
+            dx, dy, dist,
             dirX: dx / dist,
             dirY: dy / dist
           });
         }
       }
 
-      onPointerUp(e) {
+      onUp(e) {
         if (e.pointerId !== this.touchId) return;
         clearTimeout(this.holdTimer);
 
-        const duration = performance.now() - this.startTime;
+        const now = performance.now();
+        const duration = now - this.startTime;
         const dx = e.clientX - this.startX;
         const dy = e.clientY - this.startY;
         const dist = Math.hypot(dx, dy);
 
-        if (duration < this.FLICK_TIME && dist > this.FLICK_DIST) {
+        if (this.isHolding) {
+          // 長按釋放
+          this.onAction('HOLD_RELEASE', { duration });
+        } else if (duration < this.FLICK_TIME && dist > this.FLICK_DIST) {
+          // 快速輕彈
           this.onAction('FLICK', { dirX: dx / dist, dirY: dy / dist });
-        } else if (dist <= this.DEADZONE && duration < this.HOLD_TIME) {
-          this.onAction('TAP', { x: e.clientX, y: e.clientY });
+        } else if (dist <= this.DEADZONE) {
+          // 點擊判定（判斷是單擊還是雙擊）
+          const timeSinceLastTap = now - this.lastTapTime;
+          const distFromLastTap = Math.hypot(e.clientX - this.lastTapX, e.clientY - this.lastTapY);
+
+          if (timeSinceLastTap < this.DOUBLE_TAP_DELAY && distFromLastTap < 40) {
+            this.onAction('DOUBLE_TAP', { x: e.clientX, y: e.clientY });
+            this.lastTapTime = 0; // 重置避免連三次觸發兩次
+          } else {
+            this.lastTapTime = now;
+            this.lastTapX = e.clientX;
+            this.lastTapY = e.clientY;
+            this.onAction('TAP', { x: e.clientX, y: e.clientY });
+          }
         } else {
           this.onAction('RELEASE', {});
         }
 
         this.touchId = null;
         this.isDragging = false;
+        this.isHolding = false;
       }
     }
 
     // ==========================================
-    // 2. 特效容器
+    // 2. 特效與彈道系統
     // ==========================================
     const particles = [];
     function addParticle(p) { particles.push(p); }
 
+    class Shockwave {
+      constructor(x, y, maxR, color, lineWidth = 3) {
+        this.x = x; this.y = y; this.maxR = maxR; this.r = 10;
+        this.color = color; this.lineWidth = lineWidth; this.alive = true;
+      }
+      update() {
+        this.r += (this.maxR - this.r) * 0.18;
+        if (this.maxR - this.r < 1.5) this.alive = false;
+      }
+      render(ctx) {
+        ctx.save();
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.lineWidth;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Projectile {
+      constructor(x, y, dx, dy, speed, size, color, life = 40) {
+        this.x = x; this.y = y;
+        this.vx = dx * speed; this.vy = dy * speed;
+        this.size = size; this.color = color;
+        this.life = life; this.alive = true;
+      }
+      update() {
+        this.x += this.vx; this.y += this.vy;
+        if (--this.life <= 0) this.alive = false;
+      }
+      render(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     // ==========================================
-    // 3. 角色行為策略（Strategy）
+    // 3. 角色行為策略（支援長按與連點）
     // ==========================================
     class BaseRoleStrategy {
       constructor(hero) { this.hero = hero; }
@@ -153,76 +219,101 @@
       render(ctx) {}
     }
 
-    // --- 角色 A：旋風狂戰士 ---
+    // --- 角色 A：狂戰士（旋風、戰吼蓄力、雙擊連劈） ---
     class BarbarianStrategy extends BaseRoleStrategy {
       constructor(hero) {
         super(hero);
         this.spinAngle = 0;
         this.isSpinning = false;
-        this.rage = 0;
+        this.chargeTimer = 0;
+        this.isCharging = false;
       }
 
       onAction(type, data) {
-        // 若處於跳躍/衝刺狀態中，忽略拖曳指令
         if (this.hero.isDashing) return;
 
         if (type === 'DRAG') {
           this.isSpinning = true;
           this.hero.vx = data.dirX * 3.5;
           this.hero.vy = data.dirY * 3.5;
-          this.rage = Math.min(100, this.rage + 0.3);
         } else if (type === 'RELEASE') {
           this.hero.vx = 0;
           this.hero.vy = 0;
           if (this.isSpinning) {
             this.isSpinning = false;
-            addParticle(new Shockwave(this.hero.x, this.hero.y, 80 + this.rage * 0.5, '#e67e22'));
-            this.rage = 0;
+            addParticle(new Shockwave(this.hero.x, this.hero.y, 60, '#e67e22'));
           }
         } else if (type === 'FLICK') {
+          // 輕彈：躍擊
           this.isSpinning = false;
-          this.rage = 0;
-          // 觸發躍擊衝刺（初速 16，衰減率 0.88，位移約 120px 後停住）
           this.hero.dash(data.dirX, data.dirY, 16, 0.88, () => {
-            // 著地瞬間爆發震波
-            addParticle(new Shockwave(this.hero.x, this.hero.y, 70, '#f39c12'));
+            addParticle(new Shockwave(this.hero.x, this.hero.y, 75, '#f39c12', 4));
           });
+        } else if (type === 'TAP') {
+          // 單擊：原地重揮一刀
+          addParticle(new Shockwave(this.hero.x, this.hero.y, 45, '#c0392b', 2));
+        } else if (type === 'DOUBLE_TAP') {
+          // 連點：裂地猛擊（大範圍二段爆發）
+          addParticle(new Shockwave(this.hero.x, this.hero.y, 110, '#e74c3c', 5));
+        } else if (type === 'HOLD_START') {
+          // 長按：開始戰吼蓄力
+          this.hero.vx = 0;
+          this.hero.vy = 0;
+          this.isSpinning = false;
+          this.isCharging = true;
+          this.chargeTimer = 0;
+        } else if (type === 'HOLD_RELEASE') {
+          // 長按釋放：依蓄力時間爆發怒氣戰吼
+          this.isCharging = false;
+          const powerRadius = Math.min(180, 50 + this.chargeTimer * 0.15);
+          addParticle(new Shockwave(this.hero.x, this.hero.y, powerRadius, '#ff0055', 6));
+          this.chargeTimer = 0;
         }
       }
 
       update(dt) {
+        if (this.isCharging) {
+          this.chargeTimer += dt;
+        }
         if (this.isSpinning && !this.hero.isDashing) {
-          this.spinAngle += 0.3;
-          if (Math.random() < 0.3) {
-            addParticle(new Spark(this.hero.x, this.hero.y, '#e74c3c'));
-          }
+          this.spinAngle += 0.35;
         }
       }
 
       render(ctx) {
         ctx.fillStyle = '#c0392b';
         ctx.beginPath();
-        // 若處於跳躍衝刺中，稍微放大半徑模擬離地高度
-        const radius = this.hero.isDashing ? 24 : 20;
-        ctx.arc(this.hero.x, this.hero.y, radius, 0, Math.PI * 2);
+        ctx.arc(this.hero.x, this.hero.y, this.hero.isDashing ? 23 : 19, 0, Math.PI * 2);
         ctx.fill();
 
+        // 旋風斬刀光
         if (this.isSpinning && !this.hero.isDashing) {
           ctx.strokeStyle = '#f39c12';
           ctx.lineWidth = 4;
           ctx.beginPath();
-          ctx.arc(this.hero.x, this.hero.y, 45, this.spinAngle, this.spinAngle + Math.PI * 1.2);
+          ctx.arc(this.hero.x, this.hero.y, 42, this.spinAngle, this.spinAngle + Math.PI * 1.3);
+          ctx.stroke();
+        }
+
+        // 蓄力聚能效果
+        if (this.isCharging) {
+          ctx.strokeStyle = 'rgba(255, 0, 85, 0.7)';
+          ctx.lineWidth = 3;
+          const pulse = (Math.sin(performance.now() * 0.02) + 1) * 8;
+          ctx.beginPath();
+          ctx.arc(this.hero.x, this.hero.y, 30 + pulse, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
     }
 
-    // --- 角色 B：獵人/遊俠 ---
+    // --- 角色 B：獵人（走位、速射連點、穿透重矢長按） ---
     class HunterStrategy extends BaseRoleStrategy {
       constructor(hero) {
         super(hero);
-        this.shootTimer = 0;
         this.isMoving = false;
+        this.isAiming = false;
+        this.aimAngle = 0;
       }
 
       onAction(type, data) {
@@ -237,27 +328,39 @@
           this.hero.vx = 0;
           this.hero.vy = 0;
         } else if (type === 'FLICK') {
+          // 輕彈：翻滾
           this.isMoving = false;
-          // 原地留下一顆緩速陷阱
-          addParticle(new Trap(this.hero.x, this.hero.y));
-          // 翻滾位移（初速 18，衰減率 0.86，快速平滑停下）
           this.hero.dash(data.dirX, data.dirY, 18, 0.86);
+        } else if (type === 'TAP') {
+          // 單擊：朝正前方扇形速射 3 發箭
+          const baseAng = -Math.PI / 2;
+          [-0.2, 0, 0.2].forEach(off => {
+            addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(baseAng + off), Math.sin(baseAng + off), 9, 3, '#2ecc71'));
+          });
+        } else if (type === 'DOUBLE_TAP') {
+          // 連點：後跳步 + 散射陷阱彈
+          this.hero.dash(0, 1, 14, 0.85); // 往下/後方後撤
+          for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+            addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(a), Math.sin(a), 7, 3.5, '#3498db'));
+          }
+        } else if (type === 'HOLD_START') {
+          // 長按：進入狙擊瞄準
+          this.hero.vx = 0;
+          this.hero.vy = 0;
+          this.isMoving = false;
+          this.isAiming = true;
+          this.aimAngle = -Math.PI / 2; // 預設朝上
+        } else if (type === 'HOLD_AIM') {
+          this.aimAngle = Math.atan2(data.dy, data.dx);
+        } else if (type === 'HOLD_RELEASE') {
+          // 長按釋放：射出穿透重矢
+          this.isAiming = false;
+          addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(this.aimAngle), Math.sin(this.aimAngle), 16, 7, '#f1c40f', 60));
+          addParticle(new Shockwave(this.hero.x, this.hero.y, 40, '#f1c40f'));
         }
       }
 
-      update(dt) {
-        if (!this.isMoving && !this.hero.isDashing) {
-          this.shootTimer += dt;
-          if (this.shootTimer > 180) {
-            this.shootTimer = 0;
-            for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
-              addParticle(new Arrow(this.hero.x, this.hero.y, Math.cos(a), Math.sin(a)));
-            }
-          }
-        } else {
-          this.shootTimer = 0;
-        }
-      }
+      update(dt) {}
 
       render(ctx) {
         ctx.fillStyle = '#27ae60';
@@ -265,95 +368,28 @@
         ctx.arc(this.hero.x, this.hero.y, 18, 0, Math.PI * 2);
         ctx.fill();
 
-        if (!this.isMoving && !this.hero.isDashing) {
-          ctx.strokeStyle = 'rgba(46, 204, 113, 0.4)';
+        // 瞄準輔助線
+        if (this.isAiming) {
+          ctx.strokeStyle = 'rgba(241, 196, 15, 0.7)';
           ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
           ctx.beginPath();
-          ctx.arc(this.hero.x, this.hero.y, 30, 0, Math.PI * 2);
+          ctx.moveTo(this.hero.x, this.hero.y);
+          ctx.lineTo(this.hero.x + Math.cos(this.aimAngle) * 140, this.hero.y + Math.sin(this.aimAngle) * 140);
           ctx.stroke();
+          ctx.setLineDash([]);
         }
       }
     }
 
     // ==========================================
-    // 4. 特效物件實作
-    // ==========================================
-    class Shockwave {
-      constructor(x, y, maxR, color) {
-        this.x = x; this.y = y; this.maxR = maxR; this.r = 10;
-        this.color = color; this.alive = true;
-      }
-      update() {
-        this.r += (this.maxR - this.r) * 0.2;
-        if (this.maxR - this.r < 2) this.alive = false;
-      }
-      render(ctx) {
-        ctx.save();
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
-    class Arrow {
-      constructor(x, y, dx, dy) {
-        this.x = x; this.y = y; this.dx = dx * 8; this.dy = dy * 8;
-        this.life = 40; this.alive = true;
-      }
-      update() {
-        this.x += this.dx;
-        this.y += this.dy;
-        if (--this.life <= 0) this.alive = false;
-      }
-      render(ctx) {
-        ctx.fillStyle = '#2ecc71';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    class Trap {
-      constructor(x, y) {
-        this.x = x; this.y = y; this.life = 120; this.alive = true;
-      }
-      update() {
-        if (--this.life <= 0) this.alive = false;
-      }
-      render(ctx) {
-        ctx.strokeStyle = '#3498db';
-        ctx.strokeRect(this.x - 8, this.y - 8, 16, 16);
-      }
-    }
-
-    class Spark {
-      constructor(x, y, color) {
-        this.x = x + (Math.random() - 0.5) * 30;
-        this.y = y + (Math.random() - 0.5) * 30;
-        this.life = 15; this.alive = true; this.color = color;
-      }
-      update() { if (--this.life <= 0) this.alive = false; }
-      render(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, 3, 3);
-      }
-    }
-
-    // ==========================================
-    // 5. 主角實體 (含 Dash 狀態機與摩擦阻尼)
+    // 4. 主角實體 (Hero)
     // ==========================================
     class Hero {
       constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.vx = 0;
-        this.vy = 0;
+        this.x = x; this.y = y;
+        this.vx = 0; this.vy = 0;
         this.strategy = null;
-
-        // 衝刺/翻滾狀態參數
         this.isDashing = false;
         this.dashDecel = 0.88;
         this.onDashEnd = null;
@@ -361,8 +397,7 @@
 
       setStrategy(strategy) {
         this.strategy = strategy;
-        this.vx = 0;
-        this.vy = 0;
+        this.vx = 0; this.vy = 0;
         this.isDashing = false;
       }
 
@@ -379,15 +414,11 @@
       }
 
       update(dt) {
-        // 若在衝刺/翻滾狀態中，每幀套用摩擦阻尼快速減速
         if (this.isDashing) {
           this.vx *= this.dashDecel;
           this.vy *= this.dashDecel;
-
-          // 速度衰減到足夠小，認定為位移結束並完全停下
           if (Math.hypot(this.vx, this.vy) < 0.4) {
-            this.vx = 0;
-            this.vy = 0;
+            this.vx = 0; this.vy = 0;
             this.isDashing = false;
             if (this.onDashEnd) {
               this.onDashEnd();
@@ -398,8 +429,6 @@
 
         this.x += this.vx;
         this.y += this.vy;
-
-        // 邊界限制
         this.x = Math.max(20, Math.min(canvas.width - 20, this.x));
         this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
 
@@ -412,19 +441,19 @@
     }
 
     // ==========================================
-    // 6. 初始化與主循環
+    // 5. 初始化與執行
     // ==========================================
     const hero = new Hero(canvas.width / 2, canvas.height / 2);
 
     const roles = [
       {
         name: '野蠻人',
-        hint: '拖曳: 旋風斬 | 放手: 撼地震擊 | 輕彈(Flick): 躍擊',
+        hint: '拖曳:旋風斬 | 輕彈:躍擊 | 單擊:揮砍 | 雙擊:裂地猛擊 | 長按:戰吼蓄力',
         create: (h) => new BarbarianStrategy(h)
       },
       {
         name: '獵人',
-        hint: '拖曳: 走位避戰 | 放手: 站樁連射 | 輕彈(Flick): 翻滾陷阱',
+        hint: '拖曳:走位 | 輕彈:翻滾 | 單擊:扇形速射 | 雙擊:後跳散射 | 長按:瞄準穿透狙擊',
         create: (h) => new HunterStrategy(h)
       }
     ];
@@ -458,8 +487,8 @@
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // 繪製網格背景
+
+      // 背景地圖網格
       ctx.strokeStyle = '#1e1e1e';
       ctx.lineWidth = 1;
       const gridSize = 40;
