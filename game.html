@@ -1,272 +1,456 @@
+一、 單手觸控可用的操作維度（Gesture Primitives）
+單手單指在手機螢幕上操作時，能精確識別且不打架的操作維度主要有以下 4 種：
+ * 靜態點擊（Tap）：手指按下並在極短時間（約 150ms 內）且位移小於閥值時抬起。適合發動瞬發小技能、切換目標或撿取掉落物。
+ * 動態拖曳（Drag / Joystick）：手指按下後拖曳超過死區（Deadzone）。以手指按下的位置作為動態虛擬原點，根據位移向量決定移動方向與力度。適合控制角色走位。
+ * 快速輕彈（Flick / Quick Swipe）：手指按下、迅速滑動一段距離後於短時間內放開，且滑動速度超過特定閾值。適合判定為戰術衝刺、翻滾位移或朝該方向釋放指向性技能。
+ * 定點長按（Hold）：手指按下後維持位置不動超過時間閾值（如 400ms）。適合蓄力重擊、引導光環或引爆戰場。
+二、 可執行的 HTML5 單檔範例
+以下是一個完整的單一 HTML 檔案，包含：
+ * 解耦輸入系統：自動判斷 Drag、Flick、Tap、Hold。
+ * 策略模式角色抽換：實作了「野蠻人（旋風斬/停步重擊）」與「獵人（走位避戰/站樁連射）」兩種截然不同的行為。
+ * 點擊右上方按鈕即可即時無縫切換角色。
+你可以將下方代碼儲存為 index.html，直接用瀏覽器開啟或在手機上測試：
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>模組化武器系統測試</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #222; touch-action: none; }
-        canvas { display: block; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>單手 ARPG 角色行為抽換原型</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #121212; touch-action: none; font-family: sans-serif; }
+    #canvas { display: block; width: 100%; height: 100%; }
+    #ui {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+    .info { font-size: 14px; line-height: 1.5; }
+    .switch-btn {
+      pointer-events: auto; background: #e67e22; color: #fff; border: none;
+      padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;
+    }
+    .switch-btn:active { background: #d35400; }
+  </style>
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
+  <div id="ui">
+    <div class="info">
+      <div>當前職業：<strong id="roleName">野蠻人</strong></div>
+      <div id="roleHint" style="font-size: 12px; color: #ccc;">拖曳: 旋風斬 | 放手: 撼地震擊 | 輕彈(Flick): 躍擊</div>
+    </div>
+    <button class="switch-btn" id="switchBtn">切換職業</button>
+  </div>
 
-<script>
-    const canvas = document.getElementById('gameCanvas');
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
     window.addEventListener('resize', resize);
     resize();
 
-    // 遊戲全域陣列，用來存放所有的攻擊判定物
-    let projectiles = [];
-
     // ==========================================
-    // 武器系統架構 (Weapon System)
+    // 1. 單手觸控手勢解析器 (Input Adapter)
     // ==========================================
+    class GestureInput {
+      constructor(domElement, onAction) {
+        this.dom = domElement;
+        this.onAction = onAction;
 
-    // 1. 武器基底類別 (所有武器的爸爸)
-    class Weapon {
-        constructor(player) {
-            this.player = player;
-            this.cooldown = 1000; // 預設冷卻時間 1 秒
-            this.lastShotTime = 0;
-        }
-        
-        // 檢查是否可以攻擊
-        tryAttack(angle, now) {
-            if (now - this.lastShotTime >= this.cooldown) {
-                this.attack(angle);
-                this.lastShotTime = now;
-            }
-        }
+        this.touchId = null;
+        this.startX = 0;
+        this.startY = 0;
+        this.startTime = 0;
+        this.currentX = 0;
+        this.currentY = 0;
+        this.isDragging = false;
+        this.holdTimer = null;
 
-        // 實際攻擊邏輯 (交給子類別去實作)
-        attack(angle) {
-            console.log("基礎武器沒有攻擊效果");
-        }
-    }
+        this.DEADZONE = 10;
+        this.FLICK_TIME = 250;
+        this.FLICK_DIST = 40;
+        this.HOLD_TIME = 450;
 
-    // 2. 槍手武器：發射直線子彈
-    class Gun extends Weapon {
-        constructor(player) {
-            super(player);
-            this.cooldown = 500; // 0.5秒一發
-        }
-        attack(angle) {
-            projectiles.push(new Bullet(this.player.x, this.player.y, angle));
-        }
-    }
+        this.init();
+      }
 
-    // 3. 劍士武器：生成短暫的近戰判定區
-    class Sword extends Weapon {
-        constructor(player) {
-            super(player);
-            this.cooldown = 800; // 0.8秒揮一次
-        }
-        attack(angle) {
-            projectiles.push(new Slash(this.player.x, this.player.y, angle));
-        }
-    }
+      init() {
+        this.dom.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+        this.dom.addEventListener('pointermove', (e) => this.onPointerMove(e));
+        this.dom.addEventListener('pointerup', (e) => this.onPointerUp(e));
+        this.dom.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+      }
 
-    // 4. 魔法師武器：發射慢速火球，抵達後爆炸
-    class Wand extends Weapon {
-        constructor(player) {
-            super(player);
-            this.cooldown = 1200; // 1.2秒一發
-        }
-        attack(angle) {
-            projectiles.push(new Fireball(this.player.x, this.player.y, angle));
-        }
-    }
+      onPointerDown(e) {
+        if (this.touchId !== null) return;
+        this.touchId = e.pointerId;
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.currentX = e.clientX;
+        this.currentY = e.clientY;
+        this.startTime = performance.now();
+        this.isDragging = false;
 
-    // ==========================================
-    // 攻擊判定物架構 (Projectiles & Hitboxes)
-    // ==========================================
+        this.holdTimer = setTimeout(() => {
+          if (!this.isDragging) {
+            this.onAction('HOLD', { x: this.startX, y: this.startY });
+          }
+        }, this.HOLD_TIME);
+      }
 
-    // 槍的子彈
-    class Bullet {
-        constructor(x, y, angle) {
-            this.x = x; this.y = y;
-            this.vx = Math.cos(angle) * 8;
-            this.vy = Math.sin(angle) * 8;
-            this.radius = 5;
-            this.isDead = false;
-        }
-        update() {
-            this.x += this.vx; this.y += this.vy;
-            // 飛出螢幕就標記死亡
-            if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.isDead = true;
-        }
-        draw(ctx) {
-            ctx.fillStyle = '#ffcc00';
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
-        }
-    }
+      onPointerMove(e) {
+        if (e.pointerId !== this.touchId) return;
+        this.currentX = e.clientX;
+        this.currentY = e.clientY;
 
-    // 劍的揮砍 (壽命極短的扇形/圓形)
-    class Slash {
-        constructor(x, y, angle) {
-            this.x = x; this.y = y;
-            this.angle = angle;
-            this.radius = 40; // 攻擊範圍
-            this.lifeTime = 150; // 存在 150 毫秒
-            this.spawnTime = Date.now();
-            this.isDead = false;
-        }
-        update() {
-            if (Date.now() - this.spawnTime > this.lifeTime) this.isDead = true;
-        }
-        draw(ctx) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.beginPath(); 
-            // 畫一個跟著玩家的半月形或圓形範圍
-            ctx.arc(this.x + Math.cos(this.angle)*20, this.y + Math.sin(this.angle)*20, this.radius, 0, Math.PI * 2); 
-            ctx.fill();
-        }
-    }
+        const dx = this.currentX - this.startX;
+        const dy = this.currentY - this.startY;
+        const dist = Math.hypot(dx, dy);
 
-    // 魔法的火球 (飛行後變爆炸圈)
-    class Fireball {
-        constructor(x, y, angle) {
-            this.x = x; this.y = y;
-            this.vx = Math.cos(angle) * 4; // 飛得慢
-            this.vy = Math.sin(angle) * 4;
-            this.radius = 8;
-            this.isDead = false;
-            this.lifeTime = 1000; // 飛 1 秒後爆炸
-            this.spawnTime = Date.now();
-            this.exploded = false;
+        if (dist > this.DEADZONE) {
+          clearTimeout(this.holdTimer);
+          this.isDragging = true;
+          this.onAction('DRAG', {
+            dx: dx,
+            dy: dy,
+            dist: dist,
+            dirX: dx / dist,
+            dirY: dy / dist
+          });
         }
-        update() {
-            if (!this.exploded) {
-                this.x += this.vx; this.y += this.vy;
-                if (Date.now() - this.spawnTime > this.lifeTime) {
-                    this.exploded = true;
-                    this.radius = 60; // 爆炸半徑
-                    this.spawnTime = Date.now(); // 重設時間給爆炸動畫
-                }
-            } else {
-                // 爆炸殘留 0.3 秒
-                if (Date.now() - this.spawnTime > 300) this.isDead = true;
-            }
-        }
-        draw(ctx) {
-            if (!this.exploded) {
-                ctx.fillStyle = '#ff4400';
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
-            } else {
-                ctx.fillStyle = 'rgba(255, 68, 0, 0.5)';
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-    }
+      }
 
-    // ==========================================
-    // 玩家與搖桿邏輯
-    // ==========================================
+      onPointerUp(e) {
+        if (e.pointerId !== this.touchId) return;
+        clearTimeout(this.holdTimer);
 
-    class Player {
-        constructor(x, y) {
-            this.x = x; this.y = y;
-            this.radius = 15;
-            this.speed = 3;
-            
-            // 🔥 在這裡切換職業！ 🔥
-            // 試著把 new Gun(this) 換成 new Sword(this) 或 new Wand(this)
-            this.weapon = new Gun(this); 
-        }
-        
-        update(joystick, now) {
-            if (joystick.active) {
-                const dx = joystick.currentX - joystick.originX;
-                const dy = joystick.currentY - joystick.originY;
-                const distance = Math.hypot(dx, dy);
+        const duration = performance.now() - this.startTime;
+        const dx = e.clientX - this.startX;
+        const dy = e.clientY - this.startY;
+        const dist = Math.hypot(dx, dy);
 
-                if (distance > 5) {
-                    const moveAngle = Math.atan2(dy, dx);
-                    
-                    // 移動
-                    this.x += Math.cos(moveAngle) * this.speed;
-                    this.y += Math.sin(moveAngle) * this.speed;
-                    this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
-                    this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
-
-                    // 攻擊 (反方向)
-                    const shootAngle = moveAngle + Math.PI;
-                    this.weapon.tryAttack(shootAngle, now);
-                }
-            }
-        }
-
-        draw(ctx) {
-            ctx.fillStyle = '#00aaff';
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
-        }
-    }
-
-    // 初始化設定
-    const player = new Player(canvas.width / 2, canvas.height / 2);
-    const joystick = { active: false, originX: 0, originY: 0, currentX: 0, currentY: 0, maxRadius: 50 };
-
-    // 觸控事件
-    canvas.addEventListener('touchstart', e => {
-        const touch = e.touches[0];
-        joystick.originX = touch.clientX; joystick.originY = touch.clientY;
-        joystick.currentX = touch.clientX; joystick.currentY = touch.clientY;
-        joystick.active = true;
-    });
-    canvas.addEventListener('touchmove', e => {
-        if (!joystick.active) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - joystick.originX; const dy = touch.clientY - joystick.originY;
-        if (Math.hypot(dx, dy) > joystick.maxRadius) {
-            const angle = Math.atan2(dy, dx);
-            joystick.currentX = joystick.originX + Math.cos(angle) * joystick.maxRadius;
-            joystick.currentY = joystick.originY + Math.sin(angle) * joystick.maxRadius;
+        if (duration < this.FLICK_TIME && dist > this.FLICK_DIST) {
+          this.onAction('FLICK', { dirX: dx / dist, dirY: dy / dist });
+        } else if (dist <= this.DEADZONE && duration < this.HOLD_TIME) {
+          this.onAction('TAP', { x: e.clientX, y: e.clientY });
         } else {
-            joystick.currentX = touch.clientX; joystick.currentY = touch.clientY;
-        }
-    });
-    ['touchend', 'touchcancel'].forEach(evt => canvas.addEventListener(evt, () => joystick.active = false));
-
-    // 遊戲迴圈
-    function loop() {
-        const now = Date.now();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 更新與繪製玩家
-        player.update(joystick, now);
-        player.draw(ctx);
-
-        // 更新與繪製所有攻擊判定物
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            let p = projectiles[i];
-            
-            // 劍的判定區需要跟著玩家走
-            if (p instanceof Slash) {
-                p.x = player.x; p.y = player.y;
-            }
-
-            p.update();
-            p.draw(ctx);
-            if (p.isDead) projectiles.splice(i, 1);
+          this.onAction('RELEASE', {});
         }
 
-        // 畫搖桿
-        if (joystick.active) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(joystick.originX, joystick.originY, joystick.maxRadius, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.beginPath(); ctx.arc(joystick.currentX, joystick.currentY, 20, 0, Math.PI * 2); ctx.fill();
-        }
-
-        requestAnimationFrame(loop);
+        this.touchId = null;
+        this.isDragging = false;
+      }
     }
-    loop();
-</script>
 
+    // ==========================================
+    // 2. 特效與彈道容器
+    // ==========================================
+    const particles = [];
+    function addParticle(p) { particles.push(p); }
+
+    // ==========================================
+    // 3. 角色行為策略（Strategy）
+    // ==========================================
+    class BaseRoleStrategy {
+      constructor(hero) { this.hero = hero; }
+      onAction(type, data) {}
+      update(dt) {}
+      render(ctx) {}
+    }
+
+    // --- 角色 A：旋風狂戰士 ---
+    class BarbarianStrategy extends BaseRoleStrategy {
+      constructor(hero) {
+        super(hero);
+        this.spinAngle = 0;
+        this.isSpinning = false;
+        this.rage = 0;
+      }
+
+      onAction(type, data) {
+        if (type === 'DRAG') {
+          this.isSpinning = true;
+          this.hero.vx = data.dirX * 3.5;
+          this.hero.vy = data.dirY * 3.5;
+          this.rage = Math.min(100, this.rage + 0.3);
+        } else if (type === 'RELEASE') {
+          this.hero.vx = 0;
+          this.hero.vy = 0;
+          if (this.isSpinning) {
+            this.isSpinning = false;
+            // 放手釋放撼地衝擊
+            addParticle(new Shockwave(this.hero.x, this.hero.y, 80 + this.rage * 0.5, '#e67e22'));
+            this.rage = 0;
+          }
+        } else if (type === 'FLICK') {
+          // 快速輕彈：跳斬 (躍進一段距離)
+          this.hero.x += data.dirX * 120;
+          this.hero.y += data.dirY * 120;
+          addParticle(new Shockwave(this.hero.x, this.hero.y, 60, '#f39c12'));
+        }
+      }
+
+      update(dt) {
+        if (this.isSpinning) {
+          this.spinAngle += 0.3;
+          if (Math.random() < 0.3) {
+            addParticle(new Spark(this.hero.x, this.hero.y, '#e74c3c'));
+          }
+        }
+      }
+
+      render(ctx) {
+        ctx.fillStyle = '#c0392b';
+        ctx.beginPath();
+        ctx.arc(this.hero.x, this.hero.y, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.isSpinning) {
+          ctx.strokeStyle = '#f39c12';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(this.hero.x, this.hero.y, 45, this.spinAngle, this.spinAngle + Math.PI * 1.2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // --- 角色 B：獵人/遊俠 ---
+    class HunterStrategy extends BaseRoleStrategy {
+      constructor(hero) {
+        super(hero);
+        this.shootTimer = 0;
+        this.isMoving = false;
+      }
+
+      onAction(type, data) {
+        if (type === 'DRAG') {
+          this.isMoving = true;
+          this.hero.vx = data.dirX * 4.5;
+          this.hero.vy = data.dirY * 4.5;
+        } else if (type === 'RELEASE') {
+          this.isMoving = false;
+          this.hero.vx = 0;
+          this.hero.vy = 0;
+        } else if (type === 'FLICK') {
+          // 快速輕彈：翻滾 + 原地留下緩速陷阱
+          addParticle(new Trap(this.hero.x, this.hero.y));
+          this.hero.x += data.dirX * 100;
+          this.hero.y += data.dirY * 100;
+        }
+      }
+
+      update(dt) {
+        // 站樁自動射擊
+        if (!this.isMoving) {
+          this.shootTimer += dt;
+          if (this.shootTimer > 180) { // 射擊間隔
+            this.shootTimer = 0;
+            // 朝四周散射箭矢
+            for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+              addParticle(new Arrow(this.hero.x, this.hero.y, Math.cos(a), Math.sin(a)));
+            }
+          }
+        } else {
+          this.shootTimer = 0;
+        }
+      }
+
+      render(ctx) {
+        ctx.fillStyle = '#27ae60';
+        ctx.beginPath();
+        ctx.arc(this.hero.x, this.hero.y, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 站樁蓄勢提示圈
+        if (!this.isMoving) {
+          ctx.strokeStyle = 'rgba(46, 204, 113, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(this.hero.x, this.hero.y, 30, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ==========================================
+    // 4. 特效物件實作
+    // ==========================================
+    class Shockwave {
+      constructor(x, y, maxR, color) {
+        this.x = x; this.y = y; this.maxR = maxR; this.r = 10;
+        this.color = color; this.alive = true;
+      }
+      update() {
+        this.r += (this.maxR - this.r) * 0.2;
+        if (this.maxR - this.r < 2) this.alive = false;
+      }
+      render(ctx) {
+        ctx.save();
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Arrow {
+      constructor(x, y, dx, dy) {
+        this.x = x; this.y = y; this.dx = dx * 8; this.dy = dy * 8;
+        this.life = 40; this.alive = true;
+      }
+      update() {
+        this.x += this.dx;
+        this.y += this.dy;
+        if (--this.life <= 0) this.alive = false;
+      }
+      render(ctx) {
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    class Trap {
+      constructor(x, y) {
+        this.x = x; this.y = y; this.life = 120; this.alive = true;
+      }
+      update() {
+        if (--this.life <= 0) this.alive = false;
+      }
+      render(ctx) {
+        ctx.strokeStyle = '#3498db';
+        ctx.strokeRect(this.x - 8, this.y - 8, 16, 16);
+      }
+    }
+
+    class Spark {
+      constructor(x, y, color) {
+        this.x = x + (Math.random() - 0.5) * 30;
+        this.y = y + (Math.random() - 0.5) * 30;
+        this.life = 15; this.alive = true; this.color = color;
+      }
+      update() { if (--this.life <= 0) this.alive = false; }
+      render(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, 3, 3);
+      }
+    }
+
+    // ==========================================
+    // 5. 主角實體 (Hero Entity)
+    // ==========================================
+    class Hero {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.strategy = null;
+      }
+
+      setStrategy(strategy) {
+        this.strategy = strategy;
+      }
+
+      handleAction(type, data) {
+        if (this.strategy) this.strategy.onAction(type, data);
+      }
+
+      update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        // 邊界限制
+        this.x = Math.max(20, Math.min(canvas.width - 20, this.x));
+        this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
+
+        if (this.strategy) this.strategy.update(dt);
+      }
+
+      render(ctx) {
+        if (this.strategy) this.strategy.render(ctx);
+      }
+    }
+
+    // ==========================================
+    // 6. 初始化與主循環
+    // ==========================================
+    const hero = new Hero(canvas.width / 2, canvas.height / 2);
+
+    const roles = [
+      {
+        name: '野蠻人',
+        hint: '拖曳: 旋風斬 | 放手: 撼地震擊 | 輕彈(Flick): 躍擊',
+        create: (h) => new BarbarianStrategy(h)
+      },
+      {
+        name: '獵人',
+        hint: '拖曳: 走位避戰 | 放手: 站樁連射 | 輕彈(Flick): 翻滾陷阱',
+        create: (h) => new HunterStrategy(h)
+      }
+    ];
+
+    let currentRoleIdx = 0;
+    function applyRole(idx) {
+      currentRoleIdx = idx;
+      hero.setStrategy(roles[idx].create(hero));
+      document.getElementById('roleName').innerText = roles[idx].name;
+      document.getElementById('roleHint').innerText = roles[idx].hint;
+    }
+    applyRole(0);
+
+    document.getElementById('switchBtn').addEventListener('click', () => {
+      applyRole((currentRoleIdx + 1) % roles.length);
+    });
+
+    new GestureInput(canvas, (actionType, data) => {
+      hero.handleAction(actionType, data);
+    });
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = now - lastTime;
+      lastTime = now;
+
+      // 邏輯更新
+      hero.update(dt);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (!particles[i].alive) particles.splice(i, 1);
+      }
+
+      // 畫面繪製
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 繪製格線背景
+      ctx.strokeStyle = '#1e1e1e';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      // 繪製粒子與角色
+      particles.forEach(p => p.render(ctx));
+      hero.render(ctx);
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  </script>
 </body>
 </html>
+
