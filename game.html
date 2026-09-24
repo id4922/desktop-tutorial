@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>《深淵輪迴》- 野蠻人單手極簡手勢原型</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>《深淵輪迴》- 野蠻人單手極簡手勢原型 (優化版)</title>
 <style>
   * {
     box-sizing: border-box;
@@ -11,10 +11,11 @@
     padding: 0;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
     touch-action: none;
   }
   body {
-    background-color: #0b0c10;
+    background-color: #08090c;
     color: #c5c6c7;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     display: flex;
@@ -29,8 +30,8 @@
     height: 100vh;
     max-width: 440px;
     max-height: 920px;
-    background: radial-gradient(circle at 50% 50%, #171821 0%, #0a0a0f 100%);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 10px rgba(102, 252, 241, 0.1);
+    background: radial-gradient(circle at 50% 50%, #151620 0%, #08080d 100%);
+    box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), 0 0 10px rgba(102, 252, 241, 0.1);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -46,25 +47,25 @@
     top: 0;
     left: 0;
     width: 100%;
-    padding: 10px 14px;
+    padding: 10px 12px;
     pointer-events: none;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    background: linear-gradient(to bottom, rgba(10, 10, 15, 0.92) 0%, rgba(10, 10, 15, 0) 100%);
+    background: linear-gradient(to bottom, rgba(8, 9, 12, 0.95) 0%, rgba(8, 9, 12, 0) 100%);
     z-index: 10;
   }
   .hud-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
   }
   .bar-container {
     display: flex;
     flex-direction: column;
     gap: 3px;
     flex: 1;
-    margin-right: 10px;
   }
   .bar-label {
     font-size: 11px;
@@ -83,7 +84,7 @@
   }
   .bar-fill {
     height: 100%;
-    transition: width 0.15s ease-out;
+    transition: width 0.12s ease-out;
   }
   #hp-bar { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
   #san-bar { background: linear-gradient(90deg, #8a2387, #e94057, #f27121); }
@@ -106,27 +107,58 @@
     background: rgba(233, 64, 87, 0.2);
     color: #ff758c;
   }
+  
+  /* Quick SAN adjustment in HUD */
+  .san-control-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto;
+  }
+  .btn-san-adjust {
+    background: rgba(45, 55, 72, 0.9);
+    border: 1px solid #da70d6;
+    color: #f8f9fa;
+    font-size: 11px;
+    font-weight: bold;
+    width: 26px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.1s;
+  }
+  .btn-san-adjust:active {
+    background: #da70d6;
+    color: #0b0c10;
+    transform: scale(0.92);
+  }
+
   #gesture-feedback {
     position: absolute;
-    bottom: 75px;
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(11, 12, 16, 0.85);
+    background: rgba(11, 12, 16, 0.88);
     border: 1px solid #45a29e;
-    padding: 5px 14px;
+    padding: 6px 16px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: bold;
     color: #66fcf1;
     pointer-events: none;
     z-index: 10;
-    box-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+    box-shadow: 0 0 12px rgba(102, 252, 241, 0.25);
     text-align: center;
-    transition: opacity 0.3s;
+    white-space: nowrap;
+    transition: all 0.2s;
   }
+
   #tool-panel {
     position: absolute;
-    bottom: 10px;
+    bottom: 12px;
     left: 10px;
     right: 10px;
     display: flex;
@@ -137,22 +169,22 @@
   }
   .tool-btn {
     flex: 1;
-    background: rgba(31, 40, 51, 0.85);
+    background: rgba(27, 34, 45, 0.9);
     border: 1px solid #45a29e;
     color: #c5c6c7;
-    padding: 7px 4px;
+    padding: 8px 4px;
     font-size: 11px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
     transition: all 0.15s;
   }
   .tool-btn:active {
     background: #45a29e;
     color: #0b0c10;
-    transform: scale(0.96);
+    transform: scale(0.95);
   }
   .tool-btn.danger {
     border-color: #e94057;
@@ -162,10 +194,11 @@
     background: #e94057;
     color: #fff;
   }
+
   #help-modal {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(10, 10, 15, 0.94);
+    background: rgba(10, 10, 15, 0.95);
     z-index: 100;
     display: none;
     flex-direction: column;
@@ -175,7 +208,7 @@
   #help-modal h2 {
     color: #66fcf1;
     margin-bottom: 12px;
-    font-size: 18px;
+    font-size: 17px;
     text-align: center;
   }
   #help-modal h3 {
@@ -194,7 +227,7 @@
   }
   #close-help {
     margin-top: 15px;
-    padding: 8px;
+    padding: 10px;
     background: #45a29e;
     color: #0b0c10;
     font-weight: bold;
@@ -234,56 +267,59 @@
         </div>
         <div class="bar-bg"><div id="san-bar" class="bar-fill" style="width: 100%;"></div></div>
       </div>
+      
+      <!-- 快速增減神智狀態按鈕 -->
+      <div class="san-control-box">
+        <button class="btn-san-adjust" id="btn-san-dec" title="減少 10% SAN">-10</button>
+        <button class="btn-san-adjust" id="btn-san-inc" title="增加 10% SAN">+10</button>
+      </div>
+
       <div style="display: flex; gap: 4px;">
-        <span id="stage-tag" class="badge stage-badge">階段 1: 凡人</span>
-        <span id="buff-tag" class="badge stat-badge">攻防 +0%</span>
+        <span id="stage-tag" class="badge stage-badge">階段 1</span>
+        <span id="buff-tag" class="badge stat-badge">+0%</span>
       </div>
     </div>
   </div>
 
   <!-- 手勢即時識別反饋 -->
-  <div id="gesture-feedback">手勢狀態: 待機中 (Drag/Tap/Flick/Hold)</div>
+  <div id="gesture-feedback">手勢狀態: 待機 (按住靜止蓄力 / 滑動旋風)</div>
 
-  <!-- 底部即時測試控制列 -->
+  <!-- 底部快捷操作列 -->
   <div id="tool-panel">
-    <button class="tool-btn danger" id="btn-gaze" title="扣除20% SAN，換取極致攻防與異化">👁️ 凝視邪神像 (-20% SAN)</button>
-    <button class="tool-btn" id="btn-heal">💉 恢復理智與生命</button>
+    <button class="tool-btn danger" id="btn-gaze" title="凝視邪神像 (-20% SAN)">👁️ 凝視邪神像</button>
+    <button class="tool-btn" id="btn-heal">💉 理智/生命回滿</button>
     <button class="tool-btn" id="btn-spawn">👾 召喚怪物群</button>
     <button class="tool-btn" id="btn-help">📖 招式說明</button>
   </div>
 
-  <!-- 畫布 -->
+  <!-- Canvas -->
   <canvas id="canvas"></canvas>
 
-  <!-- 招式說明彈窗 -->
+  <!-- 說明彈窗 -->
   <div id="help-modal">
-    <h2>《深淵輪迴》野蠻人手勢與階段手冊</h2>
-    <h3>一、五大核心單手手勢 (動態原點)</h3>
+    <h2>《深淵輪迴》野蠻人操作與優化指南</h2>
+    <h3>長按（Hold）操作優化說明</h3>
+    <p>針對手機（Pixel + Chrome）觸控特性優化：</p>
     <ul>
-      <li><b>Drag (拖曳移動)</b>：位移 > 14px，持續旋風斬移動割草。</li>
-      <li><b>Lift & Press (秒放秒按)</b>：放開手指在 0.33 秒內再次按下，觸發換檔戰吼／觸手。</li>
-      <li><b>Multi-Tap (原地連點)</b>：原地快速連點 (間隔 < 0.25s)，踏地集氣 / 觸手抽擊。</li>
-      <li><b>Flick (快速輕彈)</b>：短按急速滑放 (< 0.2s)，瞬發跳躍猛擊 / 暗影衝撞。</li>
-      <li><b>Hold (停步長按)</b>：原地按住蓄力，蓄滿後滑動微調半屏巨型矩形軌跡，放開轟出崩地裂斬／觸手新星！</li>
+      <li><b>防手震死區提升（22px）</b>：手指按壓時即使微幅擴大接觸面也不會誤判為滑動。</li>
+      <li><b>蓄力能量光環（每幀即時渲染）</b>：按住不動即刻出現蓄力環與光芒，蓄力進度隨時間平滑推進。</li>
+      <li><b>智能自動瞄準（Smart Aiming）</b>：原地蓄力長按時，<b>會自動精準瞄準最近的敵人</b>；滑動手指時則跟隨手指方向微調。</li>
+      <li><b>蓄滿震動回饋</b>：支援裝置震動（Haptic Vibration），蓄滿時提供微震提醒。</li>
     </ul>
 
-    <h3>二、SAN 值五階段異化進程</h3>
+    <h3>神智值（SAN 值）與敵人規則調整</h3>
     <ul>
-      <li><b>階段 1: 純粹凡人 (100%~80%)</b>：數值均衡，脫戰怒氣自然衰退。蓄力崩地巨斬貫穿半屏。</li>
-      <li><b>階段 2: 耳畔低語 (80%~60%)</b>：怒氣永不衰退，旋風斬半徑擴大，攻防 +20%~40%。</li>
-      <li><b>階段 3: 肉體畸變 (60%~0%)【深淵透支】</b>：
-        <br>- 60%~40%: 怒氣緩慢自生，戰吼/連點異化為【克蘇魯觸手抽擊】。
-        <br>- 40%~20%: 跳躍異化為【暗影衝鋒】(霸體突進)。
-        <br>- 20%~0%: 旋風斬異化為【暗影旋風斬】(帶微弱牽引黑洞)。
-        <br><i>※ 怒氣不足時強制扣除 SAN 值代價施法！</i>
-      </li>
-      <li><b>階段 4: 舊日宿體 (SAN &le; 0%)【以血代費】</b>：
-        <br>- 怒氣急速暴漲，怒空時<b>扣除真實生命值施法</b>！無被動吸血！
-        <br>- Drag【黑洞旋風斬】(半徑110px強力吸怪)。
-        <br>- Flick【暗影衝撞】(無敵霸體貫穿)。
-        <br>- 連點/換檔【智能距離觸手】(近爆裂/中貫穿/遠突刺)。
-        <br>- Hold【深淵觸手新星 (全屏大招)】：全場定身 2 秒，怒氣清零，<b>瞬間回滿生命值</b>！
-      </li>
+      <li><b>一般敵人攻擊不扣神智</b>：怪物普攻僅扣除角色生命值（HP），不再扣除 SAN 值。</li>
+      <li><b>SAN 快速微調</b>：右上角提供 <b>[-10]</b> 與 <b>[+10]</b> 按鈕，或點擊下方「凝視邪神像」，可自由切換測試 4 大階段與畸變子階段。</li>
+    </ul>
+
+    <h3>五大核心單手手勢</h3>
+    <ul>
+      <li><b>Drag (拖曳移動)</b>：位移 > 22px，持續旋風斬移動割草。</li>
+      <li><b>Lift & Press (秒放秒按)</b>：放開手指 0.33 秒內再次按下，觸發換檔戰吼／觸手。</li>
+      <li><b>Multi-Tap (原地連點)</b>：原地快速連點 (間隔 < 0.25s)，踏地集氣 / 觸手抽擊。</li>
+      <li><b>Flick (快速輕彈)</b>：短按急速滑放 (< 0.2s)，瞬發跳躍猛擊 / 暗影衝撞。</li>
+      <li><b>Hold (停步長按)</b>：原地按住蓄力（鎖定最近怪或滑動瞄準），放開轟出半屏裂地衝擊波／觸手新星！</li>
     </ul>
     <button id="close-help">返回戰鬥</button>
   </div>
@@ -291,9 +327,10 @@
 
 <script>
 /**
- * 《深淵輪迴》野蠻人原型系統
- * 核心架構：策略模式 (Strategy Pattern) 解耦角色實體與階段行為
+ * 《深淵輪迴》野蠻人原型系統 (優化版)
  */
+
+window.addEventListener('contextmenu', (e) => e.preventDefault(), { passive: false });
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -385,7 +422,7 @@ class Monster {
       this.attackCooldown -= dt;
       if (this.attackCooldown <= 0) {
         this.attackCooldown = 1.0;
-        hero.takeDamage(this.isElite ? 60 : 25, this.isElite);
+        hero.takeDamage(this.isElite ? 60 : 25);
       }
     }
   }
@@ -442,7 +479,7 @@ class Monster {
 const monsters = [];
 function spawnMonsters(count = 7) {
   for (let i = 0; i < count; i++) {
-    const isElite = Math.random() < 0.2;
+    const isElite = Math.random() < 0.25;
     const angle = Math.random() * Math.PI * 2;
     const dist = 140 + Math.random() * 180;
     const x = Math.min(Math.max(hero.x + Math.cos(angle) * dist, 40), width - 40);
@@ -512,7 +549,6 @@ class HumanBarbarianStrategy extends IHeroStrategy {
 
   onHoldAim(hero, angle, ratio) {
     hero.aimAngle = angle;
-    hero.chargeRatio = Math.min(ratio, 1.0);
   }
 
   onHoldRelease(hero, angle, ratio) {
@@ -520,7 +556,7 @@ class HumanBarbarianStrategy extends IHeroStrategy {
     if (hero.consumeResource(cost, '崩地巨斬')) {
       const length = 280;
       const width = 90;
-      hero.fireFissure(angle, length, width, 550 * (0.5 + ratio * 0.5));
+      hero.fireFissure(angle, length, width, 550 * (0.6 + ratio * 0.4));
       addFloatText('崩地巨斬！！', hero.x, hero.y - 40, '#ff4b2b', 16);
     }
     hero.isCharging = false;
@@ -621,13 +657,12 @@ class MutatedBarbarianStrategy extends IHeroStrategy {
 
   onHoldAim(hero, angle, ratio) {
     hero.aimAngle = angle;
-    hero.chargeRatio = Math.min(ratio, 1.0);
   }
 
   onHoldRelease(hero, angle, ratio) {
     const cost = 40;
     if (hero.consumeResourceWithSanOverdraft(cost, '崩地巨斬')) {
-      hero.fireFissure(angle, 290, 95, 680 * (0.5 + ratio * 0.5));
+      hero.fireFissure(angle, 290, 95, 680 * (0.6 + ratio * 0.4));
       addFloatText('崩地裂斬！', hero.x, hero.y - 40, '#9d4edd', 16);
     }
     hero.isCharging = false;
@@ -680,15 +715,8 @@ class OldOneVesselStrategy extends IHeroStrategy {
     const cost = 25;
     if (!hero.consumeResourceWithBlood(cost, '智能觸手')) return;
 
-    let target = null;
-    let minDist = 9999;
-    for (const m of monsters) {
-      const d = Math.hypot(m.x - hero.x, m.y - hero.y);
-      if (d < minDist) {
-        minDist = d;
-        target = m;
-      }
-    }
+    let target = hero.getNearestMonster();
+    let minDist = target ? Math.hypot(target.x - hero.x, target.y - hero.y) : 9999;
 
     if (!target || minDist < 80) {
       hero.castDarkNova(85, 220);
@@ -711,8 +739,6 @@ class OldOneVesselStrategy extends IHeroStrategy {
 
   onHoldAim(hero, angle, ratio) {
     hero.aimAngle = angle;
-    hero.chargeRatio = Math.min(ratio, 1.0);
-    hero.addRage(25 * 0.016, false);
   }
 
   onHoldRelease(hero, angle, ratio) {
@@ -724,6 +750,9 @@ class OldOneVesselStrategy extends IHeroStrategy {
 
   update(hero, dt) {
     hero.addRage(18 * dt, false);
+    if (hero.isCharging) {
+      hero.addRage(30 * dt, false);
+    }
   }
 }
 
@@ -755,13 +784,28 @@ class Hero {
     this.isCharging = false;
     this.chargeTimer = 0;
     this.chargeRatio = 0;
+    this.chargeMaxTime = 0.65;
     this.aimAngle = 0;
+    this.hasHapticTriggered = false;
 
     this.humanStrategy = new HumanBarbarianStrategy();
     this.whisperStrategy = new WhisperBarbarianStrategy();
     this.mutatedStrategy = new MutatedBarbarianStrategy(1);
     this.vesselStrategy = new OldOneVesselStrategy();
     this.currentStrategy = this.humanStrategy;
+  }
+
+  getNearestMonster() {
+    let nearest = null;
+    let minDist = 9999;
+    for (const m of monsters) {
+      const d = Math.hypot(m.x - this.x, m.y - this.y);
+      if (d < minDist) {
+        minDist = d;
+        nearest = m;
+      }
+    }
+    return nearest;
   }
 
   evaluateStrategy() {
@@ -800,7 +844,7 @@ class Hero {
     }
   }
 
-  takeDamage(amount, fromElite = false) {
+  takeDamage(amount) {
     if (this.isInvulnerable) return;
 
     const { defenseReduction } = this.getStatMultiplier();
@@ -809,17 +853,14 @@ class Hero {
     addFloatText(`-${Math.round(actual)}`, this.x + (Math.random()-0.5)*20, this.y - 15, '#ff4d4d', 14);
 
     this.addRage(5, false);
-
-    if (fromElite) {
-      this.reduceSan(2, '外神侵蝕');
-    }
   }
 
-  reduceSan(amount, reason = '') {
-    this.san = Math.max(0, this.san - amount);
+  changeSan(delta, reason = '') {
+    this.san = Math.min(100, Math.max(0, this.san + delta));
     this.evaluateStrategy();
     if (reason) {
-      addFloatText(`SAN -${amount}% (${reason})`, this.x, this.y - 35, '#da70d6', 12);
+      const color = delta < 0 ? '#da70d6' : '#66fcf1';
+      addFloatText(`SAN ${delta > 0 ? '+' : ''}${delta}% (${reason})`, this.x, this.y - 35, color, 12);
     }
   }
 
@@ -841,7 +882,7 @@ class Hero {
     const needed = cost - this.rage;
     this.rage = 0;
     const sanCost = Math.ceil(needed * 0.35);
-    this.reduceSan(sanCost, '深淵透支');
+    this.changeSan(-sanCost, '深淵透支');
     addFloatText(`⚡ 深淵透支！扣除 ${sanCost}% SAN`, this.x, this.y - 45, '#e0aaff', 13);
     return true;
   }
@@ -1051,6 +1092,25 @@ class Hero {
   update(dt) {
     this.evaluateStrategy();
 
+    // 蓄力狀態平滑推進 (每幀更新)
+    if (this.isCharging) {
+      this.chargeTimer += dt;
+      this.chargeRatio = Math.min(1.0, this.chargeTimer / this.chargeMaxTime);
+
+      // 蓄滿瞬間觸發觸覺微震動 (Pixel / Android Chrome)
+      if (this.chargeRatio >= 1.0 && !this.hasHapticTriggered) {
+        this.hasHapticTriggered = true;
+        if (navigator.vibrate) {
+          try { navigator.vibrate(35); } catch(e) {}
+        }
+        addParticle({ x: this.x, y: this.y, color: '#ffd200', radius: 10, life: 0.4 });
+      }
+    } else {
+      this.hasHapticTriggered = false;
+      this.chargeTimer = 0;
+      this.chargeRatio = 0;
+    }
+
     if (this.warcryActive) {
       this.warcryTimer -= dt;
       if (this.warcryTimer <= 0) {
@@ -1076,7 +1136,7 @@ class Hero {
     for (const zone of corruptionZones) {
       const d = Math.hypot(this.x - zone.x, this.y - zone.y);
       if (d < zone.radius) {
-        this.reduceSan(2.5 * dt);
+        this.changeSan(-2.5 * dt);
         if (Math.random() < 0.1) {
           addParticle({ x: this.x, y: this.y, color: '#7b2cbf', radius: 4, life: 0.4 });
         }
@@ -1108,6 +1168,55 @@ class Hero {
       ctx.fill();
     }
 
+    // 蓄力狀態：腳下環形蓄力條與半屏巨型軌跡
+    if (this.isCharging) {
+      ctx.save();
+      ctx.translate(this.x, renderY);
+
+      // 1. 腳下能量光環
+      const ringRadius = this.radius + 12;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = this.chargeRatio >= 1.0 ? '#00ffcc' : (this.san > 60 ? '#ffd200' : '#e0aaff');
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringRadius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * this.chargeRatio);
+      ctx.stroke();
+
+      // 2. 半屏巨型長方形瞄準軌跡指示器
+      ctx.rotate(this.aimAngle);
+      const length = 280;
+      const rectW = 90;
+
+      const grad = ctx.createLinearGradient(0, 0, length, 0);
+      if (this.san > 60) {
+        grad.addColorStop(0, 'rgba(255, 215, 0, 0.45)');
+        grad.addColorStop(1, 'rgba(255, 215, 0, 0.05)');
+      } else {
+        grad.addColorStop(0, 'rgba(199, 125, 255, 0.5)');
+        grad.addColorStop(1, 'rgba(199, 125, 255, 0.08)');
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, -rectW / 2, length * Math.max(0.2, this.chargeRatio), rectW);
+
+      ctx.strokeStyle = this.chargeRatio >= 1.0 ? '#00ffcc' : (this.san > 60 ? '#ffd200' : '#e0aaff');
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 6]);
+      ctx.strokeRect(0, -rectW / 2, length, rectW);
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(length, 0);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
     if (this.isWhirlwind) {
       ctx.save();
       ctx.translate(this.x, renderY);
@@ -1135,25 +1244,6 @@ class Hero {
       ctx.beginPath();
       ctx.arc(0, 0, rad * 0.9, Math.PI, Math.PI * 1.7);
       ctx.stroke();
-
-      ctx.restore();
-    }
-
-    if (this.isCharging) {
-      ctx.save();
-      ctx.translate(this.x, renderY);
-      ctx.rotate(this.aimAngle);
-
-      const length = 280;
-      const rectW = 90;
-      ctx.fillStyle = this.san > 60 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(199, 125, 255, 0.35)';
-      ctx.strokeStyle = this.san > 60 ? '#ffd200' : '#e0aaff';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 6]);
-
-      ctx.strokeRect(0, -rectW / 2, length, rectW);
-      ctx.fillRect(0, -rectW / 2, length * this.chargeRatio, rectW);
-      ctx.setLineDash([]);
 
       ctx.restore();
     }
@@ -1201,12 +1291,11 @@ class GestureController {
     this.canvas = canvas;
     this.hero = hero;
 
-    this.DEADZONE = 14;
+    this.DEADZONE = 22;
     this.LIFT_PRESS_WINDOW = 330;
-    this.MULTI_TAP_WINDOW = 250;
-    this.FLICK_MAX_TIME = 200;
-    this.FLICK_MIN_DIST = 35;
-    this.HOLD_START_TIME = 260;
+    this.FLICK_MAX_TIME = 220;
+    this.FLICK_MIN_DIST = 40;
+    this.HOLD_START_TIME = 220;
 
     this.isPointerDown = false;
     this.originX = 0;
@@ -1218,6 +1307,7 @@ class GestureController {
     this.tapCount = 0;
     this.holdTimerId = null;
     this.isHolding = false;
+    this.hasMovedPastDeadzone = false;
 
     this.setupListeners();
   }
@@ -1228,13 +1318,14 @@ class GestureController {
   }
 
   setupListeners() {
-    this.canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e));
-    window.addEventListener('pointermove', (e) => this.onPointerMove(e));
-    window.addEventListener('pointerup', (e) => this.onPointerUp(e));
-    window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+    this.canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e), { passive: false });
+    window.addEventListener('pointermove', (e) => this.onPointerMove(e), { passive: false });
+    window.addEventListener('pointerup', (e) => this.onPointerUp(e), { passive: false });
+    window.addEventListener('pointercancel', (e) => this.onPointerUp(e), { passive: false });
   }
 
   onPointerDown(e) {
+    e.preventDefault();
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -1244,6 +1335,7 @@ class GestureController {
     this.originY = y;
     this.currentX = x;
     this.currentY = y;
+    this.hasMovedPastDeadzone = false;
     const now = performance.now();
     const timeSinceLastLift = now - this.lastLiftTime;
 
@@ -1258,13 +1350,20 @@ class GestureController {
     this.downTime = now;
     this.isHolding = false;
 
+    const nearest = this.hero.getNearestMonster();
+    if (nearest) {
+      this.hero.aimAngle = Math.atan2(nearest.y - this.hero.y, nearest.x - this.hero.x);
+    } else {
+      this.hero.aimAngle = 0;
+    }
+
     clearTimeout(this.holdTimerId);
     this.holdTimerId = setTimeout(() => {
       if (!this.isPointerDown) return;
       const dist = Math.hypot(this.currentX - this.originX, this.currentY - this.originY);
       if (dist <= this.DEADZONE) {
         this.isHolding = true;
-        this.setFeedback('🔥 Hold (停步長按蓄氣中...)');
+        this.setFeedback('🔥 Hold (蓄力中！原地鎖定/滑動微調)');
         this.hero.currentStrategy.onHoldStart(this.hero);
       }
     }, this.HOLD_START_TIME);
@@ -1281,14 +1380,16 @@ class GestureController {
     const dist = Math.hypot(dx, dy);
 
     if (this.isHolding) {
-      const angle = Math.atan2(dy, dx);
-      const chargeRatio = Math.min(1.0, (performance.now() - this.downTime - this.HOLD_START_TIME) / 700);
-      this.setFeedback(`🔥 Hold 蓄力微調瞄準 (${Math.round(chargeRatio*100)}%)`);
-      this.hero.currentStrategy.onHoldAim(this.hero, angle, chargeRatio);
+      if (dist > 8) {
+        const angle = Math.atan2(dy, dx);
+        this.hero.currentStrategy.onHoldAim(this.hero, angle, this.hero.chargeRatio);
+        this.setFeedback(`🔥 Hold 蓄力微調 (${Math.round(this.hero.chargeRatio*100)}%)`);
+      }
       return;
     }
 
     if (dist > this.DEADZONE) {
+      this.hasMovedPastDeadzone = true;
       clearTimeout(this.holdTimerId);
       this.setFeedback('🌀 Drag (持續旋風斬移動割草)');
     }
@@ -1307,17 +1408,19 @@ class GestureController {
 
     if (this.isHolding) {
       this.isHolding = false;
-      const angle = Math.atan2(dy, dx);
-      const chargeRatio = Math.min(1.0, (pressDuration - this.HOLD_START_TIME) / 700);
+      let finalAngle = this.hero.aimAngle;
+      if (dist > 10) {
+        finalAngle = Math.atan2(dy, dx);
+      }
       this.setFeedback('💥 Hold 釋放！(崩地巨斬 / 觸手新星)');
-      this.hero.currentStrategy.onHoldRelease(this.hero, angle, chargeRatio);
+      this.hero.currentStrategy.onHoldRelease(this.hero, finalAngle, this.hero.chargeRatio);
       this.hero.isWhirlwind = false;
       return;
     }
 
     if (pressDuration < this.FLICK_MAX_TIME && dist > this.FLICK_MIN_DIST) {
       const speed = dist / (pressDuration / 1000);
-      if (speed > 250) {
+      if (speed > 220) {
         this.setFeedback('⚡ Flick (跳躍猛擊 / 暗影衝鋒)');
         const dirX = dx / dist;
         const dirY = dy / dist;
@@ -1327,7 +1430,7 @@ class GestureController {
       }
     }
 
-    if (dist <= this.DEADZONE && pressDuration < 250) {
+    if (dist <= this.DEADZONE && pressDuration < 240) {
       this.tapCount++;
       this.setFeedback(`✨ Multi-Tap x${this.tapCount} (踏地集氣 / 觸手抽擊)`);
       this.hero.currentStrategy.onMultiTap(this.hero);
@@ -1355,21 +1458,21 @@ class GestureController {
   draw(ctx) {
     if (this.isPointerDown) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(102, 252, 241, 0.4)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = this.isHolding ? 'rgba(255, 215, 0, 0.7)' : 'rgba(102, 252, 241, 0.45)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(this.originX, this.originY, this.DEADZONE, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(102, 252, 241, 0.7)';
+      ctx.strokeStyle = this.isHolding ? 'rgba(255, 215, 0, 0.8)' : 'rgba(102, 252, 241, 0.7)';
       ctx.beginPath();
       ctx.moveTo(this.originX, this.originY);
       ctx.lineTo(this.currentX, this.currentY);
       ctx.stroke();
 
-      ctx.fillStyle = '#66fcf1';
+      ctx.fillStyle = this.isHolding ? '#ffd200' : '#66fcf1';
       ctx.beginPath();
-      ctx.arc(this.currentX, this.currentY, 6, 0, Math.PI * 2);
+      ctx.arc(this.currentX, this.currentY, 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -1400,7 +1503,7 @@ function drawMap(ctx) {
     ctx.fill();
     ctx.fillStyle = 'rgba(181, 23, 158, 0.6)';
     ctx.font = '9px sans-serif';
-    ctx.fillText('腐蝕畸變紫霧 (掉SAN)', z.x - 45, z.y);
+    ctx.fillText('腐蝕畸變紫霧 (踏入掉SAN)', z.x - 50, z.y);
     ctx.restore();
   }
 
@@ -1529,52 +1632,67 @@ function updateHUD() {
 
   const { damageMult } = hero.getStatMultiplier();
   const buffPct = Math.round((damageMult - 1.0) * 100);
-  document.getElementById('buff-tag').innerText = `攻防 +${buffPct}%`;
+  document.getElementById('buff-tag').innerText = `+${buffPct}%`;
 
   const stageTag = document.getElementById('stage-tag');
   const sanVal = document.getElementById('san-val');
   if (hero.san > 80) {
     sanVal.innerText = `${sanPct}% (純粹凡人)`;
-    stageTag.innerText = '階段 1: 凡人';
+    stageTag.innerText = '階段 1';
     stageTag.style.color = '#66fcf1';
   } else if (hero.san > 60) {
     sanVal.innerText = `${sanPct}% (耳畔低語)`;
-    stageTag.innerText = '階段 2: 低語';
+    stageTag.innerText = '階段 2';
     stageTag.style.color = '#ff9f1c';
   } else if (hero.san > 0) {
     const sub = hero.mutatedStrategy.subStage;
     sanVal.innerText = `${sanPct}% (肉體畸變 ${sub}/3)`;
-    stageTag.innerText = `階段 3: 畸變-${sub}`;
+    stageTag.innerText = `畸變-${sub}`;
     stageTag.style.color = '#e0aaff';
   } else {
     sanVal.innerText = `0% (舊日宿體)`;
-    stageTag.innerText = '階段 4: 舊日宿體';
+    stageTag.innerText = '階段 4';
     stageTag.style.color = '#ff0055';
   }
 }
 
-document.getElementById('btn-gaze').addEventListener('click', () => {
-  hero.reduceSan(20, '主動凝視邪神像');
+document.getElementById('btn-san-dec').addEventListener('click', (e) => {
+  e.stopPropagation();
+  hero.changeSan(-10, '手動微調');
 });
 
-document.getElementById('btn-heal').addEventListener('click', () => {
+document.getElementById('btn-san-inc').addEventListener('click', (e) => {
+  e.stopPropagation();
+  hero.changeSan(10, '手動微調');
+});
+
+document.getElementById('btn-gaze').addEventListener('click', (e) => {
+  e.stopPropagation();
+  hero.changeSan(-20, '凝視邪神像');
+});
+
+document.getElementById('btn-heal').addEventListener('click', (e) => {
+  e.stopPropagation();
   hero.hp = hero.maxHp;
   hero.san = 100;
   hero.rage = 50;
   hero.evaluateStrategy();
-  addFloatText('精神理智復原！', hero.x, hero.y - 30, '#00ff88', 14);
+  addFloatText('理智生命全面復原！', hero.x, hero.y - 30, '#00ff88', 14);
 });
 
-document.getElementById('btn-spawn').addEventListener('click', () => {
+document.getElementById('btn-spawn').addEventListener('click', (e) => {
+  e.stopPropagation();
   spawnMonsters(6);
   addFloatText('怪群湧入！', hero.x, hero.y - 20, '#ff4444', 12);
 });
 
-document.getElementById('btn-help').addEventListener('click', () => {
+document.getElementById('btn-help').addEventListener('click', (e) => {
+  e.stopPropagation();
   document.getElementById('help-modal').style.display = 'flex';
 });
 
-document.getElementById('close-help').addEventListener('click', () => {
+document.getElementById('close-help').addEventListener('click', (e) => {
+  e.stopPropagation();
   document.getElementById('help-modal').style.display = 'none';
 });
 
