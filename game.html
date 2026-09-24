@@ -286,7 +286,7 @@
   </div>
 
   <!-- Gesture Debug Feedback -->
-  <div id="gesture-feedback">手勢: 待機 (到定點按住蓄力 / 短放換檔)</div>
+  <div id="gesture-feedback">手勢狀態: 待機 (按住靜止蓄力 / 滑動旋風)</div>
 
   <!-- Bottom Interactive Quick Tools -->
   <div id="tool-panel">
@@ -1302,12 +1302,12 @@ class GestureController {
     this.canvas = canvas;
     this.hero = hero;
 
-    // 方案一：狀態機解耦 (長按開大優先，短放才結算換檔)
-    this.DEADZONE = 22;           // 防手震死區 22px
-    this.LIFT_PRESS_WINDOW = 330; // 0.33 秒內再次按下視為換檔候選
+    // 手勢參數微調：提升觸控防手震死區至 22px
+    this.DEADZONE = 22;           // 死區擴大至 22px，大幅降低 Pixel 手機指腹微動誤判
+    this.LIFT_PRESS_WINDOW = 330; // 0.33 秒內再次按下判定為換檔
     this.FLICK_MAX_TIME = 220;    // 0.22 秒內放開且高速判定為 Flick
     this.FLICK_MIN_DIST = 40;     // Flick 最小位移門檻
-    this.HOLD_START_TIME = 200;   // 按住 200ms 即進入蓄力 (長按優先！)
+    this.HOLD_START_TIME = 220;   // 停步靜止 0.22 秒即進入蓄力，手感更靈敏
 
     this.isPointerDown = false;
     this.originX = 0;
@@ -1319,7 +1319,7 @@ class GestureController {
     this.tapCount = 0;
     this.holdTimerId = null;
     this.isHolding = false;
-    this.isLiftPressCandidate = false;
+    this.hasMovedPastDeadzone = false;
 
     this.setupListeners();
   }
@@ -1347,16 +1347,23 @@ class GestureController {
     this.originY = y;
     this.currentX = x;
     this.currentY = y;
+    this.hasMovedPastDeadzone = false;
     const now = performance.now();
     const timeSinceLastLift = now - this.lastLiftTime;
 
-    // 方案一核心：若在 0.33s 內再次按下，標記為換檔候選，但不立刻觸發！
-    this.isLiftPressCandidate = (timeSinceLastLift < this.LIFT_PRESS_WINDOW);
+    // 1. Lift & Press 判定
+    if (timeSinceLastLift < this.LIFT_PRESS_WINDOW) {
+      this.setFeedback('⚡ Lift & Press (換檔戰吼/觸手)');
+      this.hero.currentStrategy.onLiftAndPress(this.hero);
+      this.lastLiftTime = 0;
+      this.tapCount = 0;
+      return;
+    }
 
     this.downTime = now;
     this.isHolding = false;
 
-    // 自動預先計算智能瞄準角度 (鎖定最近怪)
+    // 自動預先計算瞄準角度（若有敵人則鎖定最近敵人，否則朝向當前位置外側）
     const nearest = this.hero.getNearestMonster();
     if (nearest) {
       this.hero.aimAngle = Math.atan2(nearest.y - this.hero.y, nearest.x - this.hero.x);
@@ -1364,15 +1371,14 @@ class GestureController {
       this.hero.aimAngle = 0;
     }
 
-    // 啟動長按計時器：只要按住超過 200ms，無條件進入開大蓄力！徹底解鎖走到定點開大
+    // 2. 原地長按蓄力 Hold 計時器啟動
     clearTimeout(this.holdTimerId);
     this.holdTimerId = setTimeout(() => {
       if (!this.isPointerDown) return;
       const dist = Math.hypot(this.currentX - this.originX, this.currentY - this.originY);
       if (dist <= this.DEADZONE) {
         this.isHolding = true;
-        this.isLiftPressCandidate = false; // 確定是長按開大，排除換檔
-        this.setFeedback('🔥 Hold (蓄力開大中！鎖定最近怪/滑動瞄準)');
+        this.setFeedback('🔥 Hold (蓄力中！原地鎖定/滑動微調)');
         this.hero.currentStrategy.onHoldStart(this.hero);
       }
     }, this.HOLD_START_TIME);
@@ -1398,9 +1404,9 @@ class GestureController {
       return;
     }
 
-    // 若位移大於防手震死區，取消換檔與蓄力，轉為 Drag 旋風斬
+    // 若位移大於防手震死區，取消 Hold，轉為 Drag
     if (dist > this.DEADZONE) {
-      this.isLiftPressCandidate = false;
+      this.hasMovedPastDeadzone = true;
       clearTimeout(this.holdTimerId);
       this.setFeedback('🌀 Drag (持續旋風斬移動割草)');
     }
@@ -1417,10 +1423,9 @@ class GestureController {
     const dy = this.currentY - this.originY;
     const dist = Math.hypot(dx, dy);
 
-    // 1. 若處於 Hold 蓄力狀態，放開即轟出大招！
+    // 處理 Hold 蓄力釋放
     if (this.isHolding) {
       this.isHolding = false;
-      this.isLiftPressCandidate = false;
       let finalAngle = this.hero.aimAngle;
       if (dist > 10) {
         finalAngle = Math.atan2(dy, dx);
@@ -1428,22 +1433,10 @@ class GestureController {
       this.setFeedback('💥 Hold 釋放！(崩地巨斬 / 觸手新星)');
       this.hero.currentStrategy.onHoldRelease(this.hero, finalAngle, this.hero.chargeRatio);
       this.hero.isWhirlwind = false;
-      this.lastLiftTime = now;
       return;
     }
 
-    // 2. 方案一核心：若按下時間極短 (< 190ms) 且屬於秒放秒按候選，放開時結算換檔戰吼！
-    if (this.isLiftPressCandidate && pressDuration < 190 && dist <= this.DEADZONE) {
-      this.setFeedback('⚡ Lift & Press (換檔戰吼/觸手)');
-      this.hero.currentStrategy.onLiftAndPress(this.hero);
-      this.isLiftPressCandidate = false;
-      this.lastLiftTime = 0;
-      this.tapCount = 0;
-      this.hero.isWhirlwind = false;
-      return;
-    }
-
-    // 3. Flick (快速輕彈)
+    // 3. Flick（快速輕彈）
     if (pressDuration < this.FLICK_MAX_TIME && dist > this.FLICK_MIN_DIST) {
       const speed = dist / (pressDuration / 1000);
       if (speed > 220) {
@@ -1452,12 +1445,11 @@ class GestureController {
         const dirY = dy / dist;
         this.hero.currentStrategy.onFlick(this.hero, dirX, dirY, dist);
         this.hero.isWhirlwind = false;
-        this.lastLiftTime = now;
         return;
       }
     }
 
-    // 4. Multi-Tap (原地連點)
+    // 4. Multi-Tap（原地連點）
     if (dist <= this.DEADZONE && pressDuration < 240) {
       this.tapCount++;
       this.setFeedback(`✨ Multi-Tap x${this.tapCount} (踏地集氣 / 觸手抽擊)`);
@@ -1486,12 +1478,14 @@ class GestureController {
   draw(ctx) {
     if (this.isPointerDown) {
       ctx.save();
+      // 原點光環基座
       ctx.strokeStyle = this.isHolding ? 'rgba(255, 215, 0, 0.7)' : 'rgba(102, 252, 241, 0.45)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(this.originX, this.originY, this.DEADZONE, 0, Math.PI * 2);
       ctx.stroke();
 
+      // 當前手指位置與引導線
       ctx.strokeStyle = this.isHolding ? 'rgba(255, 215, 0, 0.8)' : 'rgba(102, 252, 241, 0.7)';
       ctx.beginPath();
       ctx.moveTo(this.originX, this.originY);
