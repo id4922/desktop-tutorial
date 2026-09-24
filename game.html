@@ -1,510 +1,1584 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>單手 ARPG - 支援長按與連點</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: #121212; touch-action: none; font-family: sans-serif; }
-    #canvas { display: block; width: 100%; height: 100%; }
-    #ui {
-      position: absolute; top: 12px; left: 12px; right: 12px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-      pointer-events: none; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-    }
-    .info { font-size: 13px; line-height: 1.6; }
-    .switch-btn {
-      pointer-events: auto; background: #e67e22; color: #fff; border: none;
-      padding: 10px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;
-    }
-    .switch-btn:active { background: #d35400; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>《深淵輪迴》- 野蠻人單手極簡手勢原型</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  body {
+    background-color: #0b0c10;
+    color: #c5c6c7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 440px;
+    max-height: 920px;
+    background: radial-gradient(circle at 50% 50%, #171821 0%, #0a0a0f 100%);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 10px rgba(102, 252, 241, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+  #hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 10px 14px;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: linear-gradient(to bottom, rgba(10, 10, 15, 0.92) 0%, rgba(10, 10, 15, 0) 100%);
+    z-index: 10;
+  }
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .bar-container {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    margin-right: 10px;
+  }
+  .bar-label {
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    text-shadow: 0 1px 2px #000;
+  }
+  .bar-bg {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .bar-fill {
+    height: 100%;
+    transition: width 0.15s ease-out;
+  }
+  #hp-bar { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+  #san-bar { background: linear-gradient(90deg, #8a2387, #e94057, #f27121); }
+  #rage-bar { background: linear-gradient(90deg, #f7971e, #ffd200); }
+  
+  .badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .stage-badge {
+    background: #1f2833;
+    color: #66fcf1;
+  }
+  .stat-badge {
+    background: rgba(233, 64, 87, 0.2);
+    color: #ff758c;
+  }
+  #gesture-feedback {
+    position: absolute;
+    bottom: 75px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(11, 12, 16, 0.85);
+    border: 1px solid #45a29e;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #66fcf1;
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+    text-align: center;
+    transition: opacity 0.3s;
+  }
+  #tool-panel {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    z-index: 20;
+    pointer-events: auto;
+  }
+  .tool-btn {
+    flex: 1;
+    background: rgba(31, 40, 51, 0.85);
+    border: 1px solid #45a29e;
+    color: #c5c6c7;
+    padding: 7px 4px;
+    font-size: 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    transition: all 0.15s;
+  }
+  .tool-btn:active {
+    background: #45a29e;
+    color: #0b0c10;
+    transform: scale(0.96);
+  }
+  .tool-btn.danger {
+    border-color: #e94057;
+    color: #ff8597;
+  }
+  .tool-btn.danger:active {
+    background: #e94057;
+    color: #fff;
+  }
+  #help-modal {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10, 10, 15, 0.94);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  #help-modal h2 {
+    color: #66fcf1;
+    margin-bottom: 12px;
+    font-size: 18px;
+    text-align: center;
+  }
+  #help-modal h3 {
+    color: #ffd200;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  #help-modal p, #help-modal li {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #c5c6c7;
+  }
+  #help-modal ul {
+    margin-left: 18px;
+    margin-bottom: 8px;
+  }
+  #close-help {
+    margin-top: 15px;
+    padding: 8px;
+    background: #45a29e;
+    color: #0b0c10;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
 </head>
 <body>
 
-  <div id="ui">
-    <div class="info">
-      <div>當前職業：<strong id="roleName" style="color: #f39c12; font-size: 15px;">野蠻人</strong></div>
-      <div id="roleHint" style="color: #bbb;"></div>
+<div id="game-container">
+  <!-- 頂部 HUD -->
+  <div id="hud">
+    <div class="hud-row">
+      <div class="bar-container">
+        <div class="bar-label">
+          <span style="color:#ff6b6b;">生命 HP</span>
+          <span id="hp-val">1000 / 1000</span>
+        </div>
+        <div class="bar-bg"><div id="hp-bar" class="bar-fill" style="width: 100%;"></div></div>
+      </div>
+      <div class="bar-container">
+        <div class="bar-label">
+          <span style="color:#ffd200;">怒氣 RAGE</span>
+          <span id="rage-val">50 / 100</span>
+        </div>
+        <div class="bar-bg"><div id="rage-bar" class="bar-fill" style="width: 50%;"></div></div>
+      </div>
     </div>
-    <button class="switch-btn" id="switchBtn">切換職業</button>
+    
+    <div class="hud-row" style="margin-top: 2px;">
+      <div class="bar-container">
+        <div class="bar-label">
+          <span style="color:#da70d6;">神智 SAN</span>
+          <span id="san-val">100% (純粹凡人)</span>
+        </div>
+        <div class="bar-bg"><div id="san-bar" class="bar-fill" style="width: 100%;"></div></div>
+      </div>
+      <div style="display: flex; gap: 4px;">
+        <span id="stage-tag" class="badge stage-badge">階段 1: 凡人</span>
+        <span id="buff-tag" class="badge stat-badge">攻防 +0%</span>
+      </div>
+    </div>
   </div>
 
+  <!-- 手勢即時識別反饋 -->
+  <div id="gesture-feedback">手勢狀態: 待機中 (Drag/Tap/Flick/Hold)</div>
+
+  <!-- 底部即時測試控制列 -->
+  <div id="tool-panel">
+    <button class="tool-btn danger" id="btn-gaze" title="扣除20% SAN，換取極致攻防與異化">👁️ 凝視邪神像 (-20% SAN)</button>
+    <button class="tool-btn" id="btn-heal">💉 恢復理智與生命</button>
+    <button class="tool-btn" id="btn-spawn">👾 召喚怪物群</button>
+    <button class="tool-btn" id="btn-help">📖 招式說明</button>
+  </div>
+
+  <!-- 畫布 -->
   <canvas id="canvas"></canvas>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+  <!-- 招式說明彈窗 -->
+  <div id="help-modal">
+    <h2>《深淵輪迴》野蠻人手勢與階段手冊</h2>
+    <h3>一、五大核心單手手勢 (動態原點)</h3>
+    <ul>
+      <li><b>Drag (拖曳移動)</b>：位移 > 14px，持續旋風斬移動割草。</li>
+      <li><b>Lift & Press (秒放秒按)</b>：放開手指在 0.33 秒內再次按下，觸發換檔戰吼／觸手。</li>
+      <li><b>Multi-Tap (原地連點)</b>：原地快速連點 (間隔 < 0.25s)，踏地集氣 / 觸手抽擊。</li>
+      <li><b>Flick (快速輕彈)</b>：短按急速滑放 (< 0.2s)，瞬發跳躍猛擊 / 暗影衝撞。</li>
+      <li><b>Hold (停步長按)</b>：原地按住蓄力，蓄滿後滑動微調半屏巨型矩形軌跡，放開轟出崩地裂斬／觸手新星！</li>
+    </ul>
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    <h3>二、SAN 值五階段異化進程</h3>
+    <ul>
+      <li><b>階段 1: 純粹凡人 (100%~80%)</b>：數值均衡，脫戰怒氣自然衰退。蓄力崩地巨斬貫穿半屏。</li>
+      <li><b>階段 2: 耳畔低語 (80%~60%)</b>：怒氣永不衰退，旋風斬半徑擴大，攻防 +20%~40%。</li>
+      <li><b>階段 3: 肉體畸變 (60%~0%)【深淵透支】</b>：
+        <br>- 60%~40%: 怒氣緩慢自生，戰吼/連點異化為【克蘇魯觸手抽擊】。
+        <br>- 40%~20%: 跳躍異化為【暗影衝鋒】(霸體突進)。
+        <br>- 20%~0%: 旋風斬異化為【暗影旋風斬】(帶微弱牽引黑洞)。
+        <br><i>※ 怒氣不足時強制扣除 SAN 值代價施法！</i>
+      </li>
+      <li><b>階段 4: 舊日宿體 (SAN &le; 0%)【以血代費】</b>：
+        <br>- 怒氣急速暴漲，怒空時<b>扣除真實生命值施法</b>！無被動吸血！
+        <br>- Drag【黑洞旋風斬】(半徑110px強力吸怪)。
+        <br>- Flick【暗影衝撞】(無敵霸體貫穿)。
+        <br>- 連點/換檔【智能距離觸手】(近爆裂/中貫穿/遠突刺)。
+        <br>- Hold【深淵觸手新星 (全屏大招)】：全場定身 2 秒，怒氣清零，<b>瞬間回滿生命值</b>！
+      </li>
+    </ul>
+    <button id="close-help">返回戰鬥</button>
+  </div>
+</div>
 
-    // ==========================================
-    // 1. 全功能單手觸控解析器 (支援 Tap, DoubleTap, Hold, Drag, Flick)
-    // ==========================================
-    class GestureInput {
-      constructor(domElement, onAction) {
-        this.dom = domElement;
-        this.onAction = onAction;
+<script>
+/**
+ * 《深淵輪迴》野蠻人原型系統
+ * 核心架構：策略模式 (Strategy Pattern) 解耦角色實體與階段行為
+ */
 
-        this.touchId = null;
-        this.startX = 0;
-        this.startY = 0;
-        this.startTime = 0;
-        this.isDragging = false;
-        this.isHolding = false;
-        this.holdTimer = null;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-        // 連點記錄
-        this.lastTapTime = 0;
-        this.lastTapX = 0;
-        this.lastTapY = 0;
+let width, height;
+function resize() {
+  const container = document.getElementById('game-container');
+  width = container.clientWidth;
+  height = container.clientHeight;
+  canvas.width = width;
+  canvas.height = height;
+}
+window.addEventListener('resize', resize);
+resize();
 
-        // 參數閥值
-        this.DEADZONE = 12;
-        this.HOLD_DELAY = 380;       // 按住多久算長按
-        this.DOUBLE_TAP_DELAY = 280; // 連點間隔時間 (ms)
-        this.FLICK_TIME = 220;
-        this.FLICK_DIST = 40;
+const floatTexts = [];
+function addFloatText(text, x, y, color = '#fff', size = 13, bold = true) {
+  floatTexts.push({ text, x, y, color, size, bold, life: 1.0, vy: -35 });
+}
 
-        this.init();
-      }
+const particles = [];
+function addParticle(p) {
+  particles.push({
+    x: p.x, y: p.y,
+    vx: p.vx || (Math.random() - 0.5) * 80,
+    vy: p.vy || (Math.random() - 0.5) * 80,
+    radius: p.radius || 4,
+    color: p.color || '#fff',
+    life: p.life || 0.5,
+    maxLife: p.life || 0.5
+  });
+}
 
-      init() {
-        this.dom.addEventListener('pointerdown', (e) => this.onDown(e));
-        this.dom.addEventListener('pointermove', (e) => this.onMove(e));
-        this.dom.addEventListener('pointerup', (e) => this.onUp(e));
-        this.dom.addEventListener('pointercancel', (e) => this.onUp(e));
-      }
+const groundDecals = [];
+function addGroundDecal(decal) {
+  groundDecals.push({
+    x: decal.x, y: decal.y,
+    angle: decal.angle || 0,
+    width: decal.width || 40,
+    height: decal.height || 40,
+    color: decal.color || 'rgba(255,200,50,0.5)',
+    type: decal.type || 'fissure',
+    life: decal.life || 1.2,
+    maxLife: decal.life || 1.2
+  });
+}
 
-      onDown(e) {
-        if (this.touchId !== null) return;
-        this.touchId = e.pointerId;
-        this.startX = e.clientX;
-        this.startY = e.clientY;
-        this.startTime = performance.now();
-        this.isDragging = false;
-        this.isHolding = false;
+const corruptionZones = [
+  { x: width * 0.25, y: height * 0.35, radius: 65 },
+  { x: width * 0.75, y: height * 0.65, radius: 75 }
+];
+const evilIdol = { x: width * 0.5, y: height * 0.22, radius: 35 };
 
-        // 啟動長按檢測
-        this.holdTimer = setTimeout(() => {
-          if (!this.isDragging) {
-            this.isHolding = true;
-            this.onAction('HOLD_START', { x: this.startX, y: this.startY });
-          }
-        }, this.HOLD_DELAY);
-      }
+class Monster {
+  constructor(x, y, isElite = false) {
+    this.x = x;
+    this.y = y;
+    this.isElite = isElite;
+    this.radius = isElite ? 22 : 14;
+    this.hp = isElite ? 1200 : 350;
+    this.maxHp = this.hp;
+    this.speed = isElite ? 45 : 65;
+    this.color = isElite ? '#800080' : '#4b0082';
+    this.stunTimer = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.attackCooldown = 0;
+  }
 
-      onMove(e) {
-        if (e.pointerId !== this.touchId) return;
-
-        const dx = e.clientX - this.startX;
-        const dy = e.clientY - this.startY;
-        const dist = Math.hypot(dx, dy);
-
-        // 如果已經在長按中，可以當作蓄力轉向
-        if (this.isHolding) {
-          this.onAction('HOLD_AIM', { dx, dy, dirX: dx / (dist || 1), dirY: dy / (dist || 1) });
-          return;
-        }
-
-        if (dist > this.DEADZONE) {
-          clearTimeout(this.holdTimer);
-          this.isDragging = true;
-          this.onAction('DRAG', {
-            dx, dy, dist,
-            dirX: dx / dist,
-            dirY: dy / dist
-          });
-        }
-      }
-
-      onUp(e) {
-        if (e.pointerId !== this.touchId) return;
-        clearTimeout(this.holdTimer);
-
-        const now = performance.now();
-        const duration = now - this.startTime;
-        const dx = e.clientX - this.startX;
-        const dy = e.clientY - this.startY;
-        const dist = Math.hypot(dx, dy);
-
-        if (this.isHolding) {
-          // 長按釋放
-          this.onAction('HOLD_RELEASE', { duration });
-        } else if (duration < this.FLICK_TIME && dist > this.FLICK_DIST) {
-          // 快速輕彈
-          this.onAction('FLICK', { dirX: dx / dist, dirY: dy / dist });
-        } else if (dist <= this.DEADZONE) {
-          // 點擊判定（判斷是單擊還是雙擊）
-          const timeSinceLastTap = now - this.lastTapTime;
-          const distFromLastTap = Math.hypot(e.clientX - this.lastTapX, e.clientY - this.lastTapY);
-
-          if (timeSinceLastTap < this.DOUBLE_TAP_DELAY && distFromLastTap < 40) {
-            this.onAction('DOUBLE_TAP', { x: e.clientX, y: e.clientY });
-            this.lastTapTime = 0; // 重置避免連三次觸發兩次
-          } else {
-            this.lastTapTime = now;
-            this.lastTapX = e.clientX;
-            this.lastTapY = e.clientY;
-            this.onAction('TAP', { x: e.clientX, y: e.clientY });
-          }
-        } else {
-          this.onAction('RELEASE', {});
-        }
-
-        this.touchId = null;
-        this.isDragging = false;
-        this.isHolding = false;
-      }
+  update(hero, dt) {
+    if (this.stunTimer > 0) {
+      this.stunTimer -= dt;
+      return;
     }
 
-    // ==========================================
-    // 2. 特效與彈道系統
-    // ==========================================
-    const particles = [];
-    function addParticle(p) { particles.push(p); }
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vx *= 0.88;
+    this.vy *= 0.88;
 
-    class Shockwave {
-      constructor(x, y, maxR, color, lineWidth = 3) {
-        this.x = x; this.y = y; this.maxR = maxR; this.r = 10;
-        this.color = color; this.lineWidth = lineWidth; this.alive = true;
-      }
-      update() {
-        this.r += (this.maxR - this.r) * 0.18;
-        if (this.maxR - this.r < 1.5) this.alive = false;
-      }
-      render(ctx) {
-        ctx.save();
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = this.lineWidth;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
+    const dx = hero.x - this.x;
+    const dy = hero.y - this.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > this.radius + hero.radius) {
+      this.x += (dx / dist) * this.speed * dt;
+      this.y += (dy / dist) * this.speed * dt;
+    } else {
+      this.attackCooldown -= dt;
+      if (this.attackCooldown <= 0) {
+        this.attackCooldown = 1.0;
+        hero.takeDamage(this.isElite ? 60 : 25, this.isElite);
       }
     }
+  }
 
-    class Projectile {
-      constructor(x, y, dx, dy, speed, size, color, life = 40) {
-        this.x = x; this.y = y;
-        this.vx = dx * speed; this.vy = dy * speed;
-        this.size = size; this.color = color;
-        this.life = life; this.alive = true;
-      }
-      update() {
-        this.x += this.vx; this.y += this.vy;
-        if (--this.life <= 0) this.alive = false;
-      }
-      render(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
+  draw(ctx) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y + this.radius * 0.8, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ff0055';
+    ctx.beginPath();
+    ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.2, 3, 0, Math.PI * 2);
+    ctx.arc(this.x + this.radius * 0.3, this.y - this.radius * 0.2, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (this.hp < this.maxHp) {
+      const barW = this.radius * 2;
+      const barH = 4;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(this.x - barW / 2, this.y - this.radius - 8, barW, barH);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(this.x - barW / 2, this.y - this.radius - 8, (this.hp / this.maxHp) * barW, barH);
     }
 
-    // ==========================================
-    // 3. 角色行為策略（支援長按與連點）
-    // ==========================================
-    class BaseRoleStrategy {
-      constructor(hero) { this.hero = hero; }
-      onAction(type, data) {}
-      update(dt) {}
-      render(ctx) {}
+    if (this.stunTimer > 0) {
+      ctx.strokeStyle = '#bf00ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#e0aaff';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('STUN ' + this.stunTimer.toFixed(1) + 's', this.x - 20, this.y - this.radius - 12);
     }
+    ctx.restore();
+  }
 
-    // --- 角色 A：狂戰士（旋風、戰吼蓄力、雙擊連劈） ---
-    class BarbarianStrategy extends BaseRoleStrategy {
-      constructor(hero) {
-        super(hero);
-        this.spinAngle = 0;
-        this.isSpinning = false;
-        this.chargeTimer = 0;
-        this.isCharging = false;
-      }
-
-      onAction(type, data) {
-        if (this.hero.isDashing) return;
-
-        if (type === 'DRAG') {
-          this.isSpinning = true;
-          this.hero.vx = data.dirX * 3.5;
-          this.hero.vy = data.dirY * 3.5;
-        } else if (type === 'RELEASE') {
-          this.hero.vx = 0;
-          this.hero.vy = 0;
-          if (this.isSpinning) {
-            this.isSpinning = false;
-            addParticle(new Shockwave(this.hero.x, this.hero.y, 60, '#e67e22'));
-          }
-        } else if (type === 'FLICK') {
-          // 輕彈：躍擊
-          this.isSpinning = false;
-          this.hero.dash(data.dirX, data.dirY, 16, 0.88, () => {
-            addParticle(new Shockwave(this.hero.x, this.hero.y, 75, '#f39c12', 4));
-          });
-        } else if (type === 'TAP') {
-          // 單擊：原地重揮一刀
-          addParticle(new Shockwave(this.hero.x, this.hero.y, 45, '#c0392b', 2));
-        } else if (type === 'DOUBLE_TAP') {
-          // 連點：裂地猛擊（大範圍二段爆發）
-          addParticle(new Shockwave(this.hero.x, this.hero.y, 110, '#e74c3c', 5));
-        } else if (type === 'HOLD_START') {
-          // 長按：開始戰吼蓄力
-          this.hero.vx = 0;
-          this.hero.vy = 0;
-          this.isSpinning = false;
-          this.isCharging = true;
-          this.chargeTimer = 0;
-        } else if (type === 'HOLD_RELEASE') {
-          // 長按釋放：依蓄力時間爆發怒氣戰吼
-          this.isCharging = false;
-          const powerRadius = Math.min(180, 50 + this.chargeTimer * 0.15);
-          addParticle(new Shockwave(this.hero.x, this.hero.y, powerRadius, '#ff0055', 6));
-          this.chargeTimer = 0;
-        }
-      }
-
-      update(dt) {
-        if (this.isCharging) {
-          this.chargeTimer += dt;
-        }
-        if (this.isSpinning && !this.hero.isDashing) {
-          this.spinAngle += 0.35;
-        }
-      }
-
-      render(ctx) {
-        ctx.fillStyle = '#c0392b';
-        ctx.beginPath();
-        ctx.arc(this.hero.x, this.hero.y, this.hero.isDashing ? 23 : 19, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 旋風斬刀光
-        if (this.isSpinning && !this.hero.isDashing) {
-          ctx.strokeStyle = '#f39c12';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.arc(this.hero.x, this.hero.y, 42, this.spinAngle, this.spinAngle + Math.PI * 1.3);
-          ctx.stroke();
-        }
-
-        // 蓄力聚能效果
-        if (this.isCharging) {
-          ctx.strokeStyle = 'rgba(255, 0, 85, 0.7)';
-          ctx.lineWidth = 3;
-          const pulse = (Math.sin(performance.now() * 0.02) + 1) * 8;
-          ctx.beginPath();
-          ctx.arc(this.hero.x, this.hero.y, 30 + pulse, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
+  takeDamage(amt, hero) {
+    this.hp -= amt;
+    addFloatText(Math.round(amt).toString(), this.x + (Math.random()-0.5)*20, this.y - 15, amt > 300 ? '#ffdd00' : '#ffffff', amt > 300 ? 15 : 11);
+    for (let i = 0; i < 3; i++) {
+      addParticle({ x: this.x, y: this.y, color: '#a00040', radius: 3, life: 0.3 });
     }
+  }
+}
 
-    // --- 角色 B：獵人（走位、速射連點、穿透重矢長按） ---
-    class HunterStrategy extends BaseRoleStrategy {
-      constructor(hero) {
-        super(hero);
-        this.isMoving = false;
-        this.isAiming = false;
-        this.aimAngle = 0;
-      }
+const monsters = [];
+function spawnMonsters(count = 7) {
+  for (let i = 0; i < count; i++) {
+    const isElite = Math.random() < 0.2;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 140 + Math.random() * 180;
+    const x = Math.min(Math.max(hero.x + Math.cos(angle) * dist, 40), width - 40);
+    const y = Math.min(Math.max(hero.y + Math.sin(angle) * dist, 80), height - 80);
+    monsters.push(new Monster(x, y, isElite));
+  }
+}
 
-      onAction(type, data) {
-        if (this.hero.isDashing) return;
+class IHeroStrategy {
+  constructor(name, stageId) {
+    this.name = name;
+    this.stageId = stageId;
+  }
+  onDrag(hero, dirX, dirY, dt) {}
+  onLiftAndPress(hero) {}
+  onMultiTap(hero) {}
+  onFlick(hero, vecX, vecY, speed) {}
+  onHoldStart(hero) {}
+  onHoldAim(hero, angle, ratio) {}
+  onHoldRelease(hero, angle, ratio) {}
+  update(hero, dt) {}
+}
 
-        if (type === 'DRAG') {
-          this.isMoving = true;
-          this.hero.vx = data.dirX * 4.5;
-          this.hero.vy = data.dirY * 4.5;
-        } else if (type === 'RELEASE') {
-          this.isMoving = false;
-          this.hero.vx = 0;
-          this.hero.vy = 0;
-        } else if (type === 'FLICK') {
-          // 輕彈：翻滾
-          this.isMoving = false;
-          this.hero.dash(data.dirX, data.dirY, 18, 0.86);
-        } else if (type === 'TAP') {
-          // 單擊：朝正前方扇形速射 3 發箭
-          const baseAng = -Math.PI / 2;
-          [-0.2, 0, 0.2].forEach(off => {
-            addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(baseAng + off), Math.sin(baseAng + off), 9, 3, '#2ecc71'));
-          });
-        } else if (type === 'DOUBLE_TAP') {
-          // 連點：後跳步 + 散射陷阱彈
-          this.hero.dash(0, 1, 14, 0.85); // 往下/後方後撤
-          for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
-            addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(a), Math.sin(a), 7, 3.5, '#3498db'));
-          }
-        } else if (type === 'HOLD_START') {
-          // 長按：進入狙擊瞄準
-          this.hero.vx = 0;
-          this.hero.vy = 0;
-          this.isMoving = false;
-          this.isAiming = true;
-          this.aimAngle = -Math.PI / 2; // 預設朝上
-        } else if (type === 'HOLD_AIM') {
-          this.aimAngle = Math.atan2(data.dy, data.dx);
-        } else if (type === 'HOLD_RELEASE') {
-          // 長按釋放：射出穿透重矢
-          this.isAiming = false;
-          addParticle(new Projectile(this.hero.x, this.hero.y, Math.cos(this.aimAngle), Math.sin(this.aimAngle), 16, 7, '#f1c40f', 60));
-          addParticle(new Shockwave(this.hero.x, this.hero.y, 40, '#f1c40f'));
-        }
-      }
+class HumanBarbarianStrategy extends IHeroStrategy {
+  constructor() {
+    super('純粹凡人', 1);
+  }
 
-      update(dt) {}
+  onDrag(hero, dirX, dirY, dt) {
+    hero.move(dirX, dirY, hero.baseSpeed * (hero.warcryActive ? 1.2 : 1.0), dt);
+    hero.isWhirlwind = true;
+    hero.whirlwindRadius = hero.warcryActive ? 68 : 52;
+    hero.attackWhirlwind(hero.whirlwindRadius, 45, 1.0);
+  }
 
-      render(ctx) {
-        ctx.fillStyle = '#27ae60';
-        ctx.beginPath();
-        ctx.arc(this.hero.x, this.hero.y, 18, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 瞄準輔助線
-        if (this.isAiming) {
-          ctx.strokeStyle = 'rgba(241, 196, 15, 0.7)';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
-          ctx.beginPath();
-          ctx.moveTo(this.hero.x, this.hero.y);
-          ctx.lineTo(this.hero.x + Math.cos(this.aimAngle) * 140, this.hero.y + Math.sin(this.aimAngle) * 140);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
+  onLiftAndPress(hero) {
+    const cost = 20;
+    if (hero.consumeResource(cost, '戰吼')) {
+      hero.activateWarcry(4.0, 1.3, 0.2);
+      hero.pushbackAoE(85, 120);
+      addFloatText('戰吼咆哮！', hero.x, hero.y - 30, '#ffd200', 14);
+      addGroundDecal({ x: hero.x, y: hero.y, radius: 90, type: 'warcry', color: 'rgba(255, 215, 0, 0.5)', life: 0.4 });
     }
+  }
 
-    // ==========================================
-    // 4. 主角實體 (Hero)
-    // ==========================================
-    class Hero {
-      constructor(x, y) {
-        this.x = x; this.y = y;
-        this.vx = 0; this.vy = 0;
-        this.strategy = null;
-        this.isDashing = false;
-        this.dashDecel = 0.88;
-        this.onDashEnd = null;
-      }
-
-      setStrategy(strategy) {
-        this.strategy = strategy;
-        this.vx = 0; this.vy = 0;
-        this.isDashing = false;
-      }
-
-      handleAction(type, data) {
-        if (this.strategy) this.strategy.onAction(type, data);
-      }
-
-      dash(dirX, dirY, speed, decel = 0.88, onEnd = null) {
-        this.isDashing = true;
-        this.dashDecel = decel;
-        this.onDashEnd = onEnd;
-        this.vx = dirX * speed;
-        this.vy = dirY * speed;
-      }
-
-      update(dt) {
-        if (this.isDashing) {
-          this.vx *= this.dashDecel;
-          this.vy *= this.dashDecel;
-          if (Math.hypot(this.vx, this.vy) < 0.4) {
-            this.vx = 0; this.vy = 0;
-            this.isDashing = false;
-            if (this.onDashEnd) {
-              this.onDashEnd();
-              this.onDashEnd = null;
-            }
-          }
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-        this.x = Math.max(20, Math.min(canvas.width - 20, this.x));
-        this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
-
-        if (this.strategy) this.strategy.update(dt);
-      }
-
-      render(ctx) {
-        if (this.strategy) this.strategy.render(ctx);
-      }
+  onMultiTap(hero) {
+    hero.addRage(15);
+    hero.pushbackAoE(55, 60);
+    addFloatText('+15 怒氣 (踏地)', hero.x, hero.y - 25, '#f7971e', 11);
+    if (!hero.warcryActive && hero.rage >= 30) {
+      this.onLiftAndPress(hero);
     }
+  }
 
-    // ==========================================
-    // 5. 初始化與執行
-    // ==========================================
-    const hero = new Hero(canvas.width / 2, canvas.height / 2);
-
-    const roles = [
-      {
-        name: '野蠻人',
-        hint: '拖曳:旋風斬 | 輕彈:躍擊 | 單擊:揮砍 | 雙擊:裂地猛擊 | 長按:戰吼蓄力',
-        create: (h) => new BarbarianStrategy(h)
-      },
-      {
-        name: '獵人',
-        hint: '拖曳:走位 | 輕彈:翻滾 | 單擊:扇形速射 | 雙擊:後跳散射 | 長按:瞄準穿透狙擊',
-        create: (h) => new HunterStrategy(h)
-      }
-    ];
-
-    let currentRoleIdx = 0;
-    function applyRole(idx) {
-      currentRoleIdx = idx;
-      hero.setStrategy(roles[idx].create(hero));
-      document.getElementById('roleName').innerText = roles[idx].name;
-      document.getElementById('roleHint').innerText = roles[idx].hint;
-    }
-    applyRole(0);
-
-    document.getElementById('switchBtn').addEventListener('click', () => {
-      applyRole((currentRoleIdx + 1) % roles.length);
+  onFlick(hero, vecX, vecY, speed) {
+    const dist = Math.min(speed * 0.4, 160);
+    hero.startLeap(hero.x + vecX * dist, hero.y + vecY * dist, 0.35, () => {
+      hero.damageAoE(hero.x, hero.y, 80, 220, 150);
+      addGroundDecal({ x: hero.x, y: hero.y, width: 80, height: 80, type: 'crater', color: 'rgba(255, 120, 0, 0.7)', life: 0.8 });
     });
+  }
 
-    new GestureInput(canvas, (actionType, data) => {
-      hero.handleAction(actionType, data);
-    });
+  onHoldStart(hero) {
+    hero.isCharging = true;
+    hero.chargeTimer = 0;
+  }
 
-    let lastTime = performance.now();
-    function loop(now) {
-      const dt = now - lastTime;
-      lastTime = now;
+  onHoldAim(hero, angle, ratio) {
+    hero.aimAngle = angle;
+    hero.chargeRatio = Math.min(ratio, 1.0);
+  }
 
-      hero.update(dt);
-      for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        if (!particles[i].alive) particles.splice(i, 1);
-      }
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 背景地圖網格
-      ctx.strokeStyle = '#1e1e1e';
-      ctx.lineWidth = 1;
-      const gridSize = 40;
-      for (let x = 0; x < canvas.width; x += gridSize) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += gridSize) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-
-      particles.forEach(p => p.render(ctx));
-      hero.render(ctx);
-
-      requestAnimationFrame(loop);
+  onHoldRelease(hero, angle, ratio) {
+    const cost = 40;
+    if (hero.consumeResource(cost, '崩地巨斬')) {
+      const length = 280;
+      const width = 90;
+      hero.fireFissure(angle, length, width, 550 * (0.5 + ratio * 0.5));
+      addFloatText('崩地巨斬！！', hero.x, hero.y - 40, '#ff4b2b', 16);
     }
-    requestAnimationFrame(loop);
-  </script>
+    hero.isCharging = false;
+    hero.chargeRatio = 0;
+  }
+
+  update(hero, dt) {
+    hero.outOfCombatTimer += dt;
+    if (hero.outOfCombatTimer > 2.0 && hero.rage > 0) {
+      hero.rage = Math.max(0, hero.rage - 4 * dt);
+    }
+  }
+}
+
+class WhisperBarbarianStrategy extends HumanBarbarianStrategy {
+  constructor() {
+    super();
+    this.name = '耳畔低語';
+    this.stageId = 2;
+  }
+
+  onDrag(hero, dirX, dirY, dt) {
+    hero.move(dirX, dirY, hero.baseSpeed * (hero.warcryActive ? 1.25 : 1.05), dt);
+    hero.isWhirlwind = true;
+    hero.whirlwindRadius = hero.warcryActive ? 76 : 60;
+    hero.attackWhirlwind(hero.whirlwindRadius, 55, 1.0);
+  }
+
+  onLiftAndPress(hero) {
+    const cost = 20;
+    if (hero.consumeResource(cost, '低語狂吼')) {
+      hero.activateWarcry(7.5, 1.35, 0.25);
+      hero.pushbackAoE(95, 140);
+      addFloatText('焦躁戰吼！(7.5s)', hero.x, hero.y - 30, '#ff758c', 14);
+      addGroundDecal({ x: hero.x, y: hero.y, radius: 100, type: 'warcry', color: 'rgba(233, 64, 87, 0.6)', life: 0.5 });
+    }
+  }
+
+  update(hero, dt) {
+    hero.outOfCombatTimer = 0;
+  }
+}
+
+class MutatedBarbarianStrategy extends IHeroStrategy {
+  constructor(subStage = 1) {
+    super('肉體畸變', 3);
+    this.subStage = subStage;
+  }
+
+  setSubStage(sub) {
+    this.subStage = sub;
+  }
+
+  onDrag(hero, dirX, dirY, dt) {
+    hero.move(dirX, dirY, hero.baseSpeed * 1.1, dt);
+    hero.isWhirlwind = true;
+
+    if (this.subStage >= 3) {
+      hero.whirlwindRadius = 70;
+      hero.pullEnemies(hero.x, hero.y, 110, 45 * dt);
+      hero.attackWhirlwind(hero.whirlwindRadius, 70, 1.1, true);
+    } else {
+      hero.whirlwindRadius = 62;
+      hero.attackWhirlwind(hero.whirlwindRadius, 65, 1.0);
+    }
+  }
+
+  onLiftAndPress(hero) {
+    const cost = 25;
+    if (hero.consumeResourceWithSanOverdraft(cost, '觸手抽擊')) {
+      hero.summonTentacleLash();
+    }
+  }
+
+  onMultiTap(hero) {
+    this.onLiftAndPress(hero);
+  }
+
+  onFlick(hero, vecX, vecY, speed) {
+    if (this.subStage >= 2) {
+      const cost = 20;
+      if (hero.consumeResourceWithSanOverdraft(cost, '暗影衝鋒')) {
+        const dist = Math.min(speed * 0.45, 180);
+        hero.shadowDash(vecX, vecY, dist);
+      }
+    } else {
+      const dist = Math.min(speed * 0.4, 160);
+      hero.startLeap(hero.x + vecX * dist, hero.y + vecY * dist, 0.35, () => {
+        hero.damageAoE(hero.x, hero.y, 80, 240, 160);
+      });
+    }
+  }
+
+  onHoldStart(hero) {
+    hero.isCharging = true;
+    hero.chargeTimer = 0;
+  }
+
+  onHoldAim(hero, angle, ratio) {
+    hero.aimAngle = angle;
+    hero.chargeRatio = Math.min(ratio, 1.0);
+  }
+
+  onHoldRelease(hero, angle, ratio) {
+    const cost = 40;
+    if (hero.consumeResourceWithSanOverdraft(cost, '崩地巨斬')) {
+      hero.fireFissure(angle, 290, 95, 680 * (0.5 + ratio * 0.5));
+      addFloatText('崩地裂斬！', hero.x, hero.y - 40, '#9d4edd', 16);
+    }
+    hero.isCharging = false;
+    hero.chargeRatio = 0;
+  }
+
+  update(hero, dt) {
+    hero.addRage(4 * dt, false);
+  }
+}
+
+class OldOneVesselStrategy extends IHeroStrategy {
+  constructor() {
+    super('舊日宿體', 4);
+  }
+
+  onDrag(hero, dirX, dirY, dt) {
+    hero.move(dirX, dirY, hero.baseSpeed * 1.15, dt);
+    hero.isWhirlwind = true;
+    hero.whirlwindRadius = 78;
+
+    hero.pullEnemies(hero.x, hero.y, 115, 80 * dt);
+
+    hero.bloodCostTimer = (hero.bloodCostTimer || 0) + dt;
+    if (hero.bloodCostTimer >= 0.25) {
+      hero.bloodCostTimer = 0;
+      hero.consumeResourceWithBlood(4, '黑洞旋風');
+    }
+
+    hero.attackWhirlwind(hero.whirlwindRadius, 90, 1.2, true);
+  }
+
+  onFlick(hero, vecX, vecY, speed) {
+    const cost = 25;
+    if (hero.consumeResourceWithBlood(cost, '暗影衝撞')) {
+      const dist = Math.min(speed * 0.5, 210);
+      hero.invulnerableShadowRam(vecX, vecY, dist);
+    }
+  }
+
+  onLiftAndPress(hero) {
+    this.castAdaptiveTentacle(hero);
+  }
+
+  onMultiTap(hero) {
+    this.castAdaptiveTentacle(hero);
+  }
+
+  castAdaptiveTentacle(hero) {
+    const cost = 25;
+    if (!hero.consumeResourceWithBlood(cost, '智能觸手')) return;
+
+    let target = null;
+    let minDist = 9999;
+    for (const m of monsters) {
+      const d = Math.hypot(m.x - hero.x, m.y - hero.y);
+      if (d < minDist) {
+        minDist = d;
+        target = m;
+      }
+    }
+
+    if (!target || minDist < 80) {
+      hero.castDarkNova(85, 220);
+      addFloatText('近身：黑暗新星！', hero.x, hero.y - 30, '#9d4edd', 13);
+    } else if (minDist <= 220) {
+      const angle = Math.atan2(target.y - hero.y, target.x - hero.x);
+      hero.castLinearTentacle(angle, 250, 45, 340);
+      addFloatText('中距：貫穿長觸手！', hero.x, hero.y - 30, '#c77dff', 13);
+    } else {
+      hero.castGroundTentacleRing(target.x, target.y, 65, 420);
+      addFloatText('遠距：地底突刺觸手環！', target.x, target.y - 30, '#e0aaff', 13);
+    }
+  }
+
+  onHoldStart(hero) {
+    hero.isCharging = true;
+    hero.chargeTimer = 0;
+    addFloatText('深淵蓄力中...', hero.x, hero.y - 30, '#c77dff', 12);
+  }
+
+  onHoldAim(hero, angle, ratio) {
+    hero.aimAngle = angle;
+    hero.chargeRatio = Math.min(ratio, 1.0);
+    hero.addRage(25 * 0.016, false);
+  }
+
+  onHoldRelease(hero, angle, ratio) {
+    hero.rage = 0;
+    hero.castAbyssalTentacleNova();
+    hero.isCharging = false;
+    hero.chargeRatio = 0;
+  }
+
+  update(hero, dt) {
+    hero.addRage(18 * dt, false);
+  }
+}
+
+class Hero {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.radius = 18;
+    this.hp = 1000;
+    this.maxHp = 1000;
+    this.san = 100;
+    this.rage = 40;
+    this.maxRage = 100;
+    this.baseSpeed = 150;
+
+    this.isWhirlwind = false;
+    this.whirlwindRadius = 52;
+    this.whirlwindAngle = 0;
+    this.warcryActive = false;
+    this.warcryTimer = 0;
+    this.defenseBuff = 0;
+    this.outOfCombatTimer = 0;
+    this.isLeaping = false;
+    this.leapProgress = 0;
+    this.leapDuration = 0.35;
+    this.isShadowDash = false;
+    this.isInvulnerable = false;
+
+    this.isCharging = false;
+    this.chargeTimer = 0;
+    this.chargeRatio = 0;
+    this.aimAngle = 0;
+
+    this.humanStrategy = new HumanBarbarianStrategy();
+    this.whisperStrategy = new WhisperBarbarianStrategy();
+    this.mutatedStrategy = new MutatedBarbarianStrategy(1);
+    this.vesselStrategy = new OldOneVesselStrategy();
+    this.currentStrategy = this.humanStrategy;
+  }
+
+  evaluateStrategy() {
+    if (this.san > 80) {
+      this.currentStrategy = this.humanStrategy;
+    } else if (this.san > 60) {
+      this.currentStrategy = this.whisperStrategy;
+    } else if (this.san > 0) {
+      if (this.san > 40) {
+        this.mutatedStrategy.setSubStage(1);
+      } else if (this.san > 20) {
+        this.mutatedStrategy.setSubStage(2);
+      } else {
+        this.mutatedStrategy.setSubStage(3);
+      }
+      this.currentStrategy = this.mutatedStrategy;
+    } else {
+      this.currentStrategy = this.vesselStrategy;
+    }
+  }
+
+  getStatMultiplier() {
+    const lostSan = Math.max(0, 100 - this.san);
+    const bonus = lostSan * 0.01;
+    return {
+      damageMult: 1.0 + bonus,
+      defenseReduction: Math.min(0.6, (this.defenseBuff + bonus * 0.5))
+    };
+  }
+
+  addRage(amount, showText = true) {
+    const old = this.rage;
+    this.rage = Math.min(this.maxRage, this.rage + amount);
+    if (showText && Math.round(this.rage) > Math.round(old) + 5) {
+      addFloatText(`+${Math.round(amount)}怒`, this.x + 15, this.y - 20, '#ffd200', 10);
+    }
+  }
+
+  takeDamage(amount, fromElite = false) {
+    if (this.isInvulnerable) return;
+
+    const { defenseReduction } = this.getStatMultiplier();
+    const actual = Math.max(1, amount * (1.0 - defenseReduction));
+    this.hp = Math.max(0, this.hp - actual);
+    addFloatText(`-${Math.round(actual)}`, this.x + (Math.random()-0.5)*20, this.y - 15, '#ff4d4d', 14);
+
+    this.addRage(5, false);
+
+    if (fromElite) {
+      this.reduceSan(2, '外神侵蝕');
+    }
+  }
+
+  reduceSan(amount, reason = '') {
+    this.san = Math.max(0, this.san - amount);
+    this.evaluateStrategy();
+    if (reason) {
+      addFloatText(`SAN -${amount}% (${reason})`, this.x, this.y - 35, '#da70d6', 12);
+    }
+  }
+
+  consumeResource(cost, skillName) {
+    if (this.rage >= cost) {
+      this.rage -= cost;
+      this.outOfCombatTimer = 0;
+      return true;
+    }
+    addFloatText(`怒氣不足 (${skillName})`, this.x, this.y - 20, '#ff9999', 11);
+    return false;
+  }
+
+  consumeResourceWithSanOverdraft(cost, skillName) {
+    if (this.rage >= cost) {
+      this.rage -= cost;
+      return true;
+    }
+    const needed = cost - this.rage;
+    this.rage = 0;
+    const sanCost = Math.ceil(needed * 0.35);
+    this.reduceSan(sanCost, '深淵透支');
+    addFloatText(`⚡ 深淵透支！扣除 ${sanCost}% SAN`, this.x, this.y - 45, '#e0aaff', 13);
+    return true;
+  }
+
+  consumeResourceWithBlood(cost, skillName) {
+    if (this.rage >= cost) {
+      this.rage -= cost;
+      return true;
+    }
+    const needed = cost - this.rage;
+    this.rage = 0;
+    const hpCost = needed * 4;
+    this.hp = Math.max(1, this.hp - hpCost);
+    addFloatText(`🩸 以血代費！-${hpCost} HP`, this.x, this.y - 45, '#ff0055', 13);
+    return true;
+  }
+
+  move(dirX, dirY, speed, dt) {
+    this.x = Math.min(Math.max(this.x + dirX * speed * dt, 20), width - 20);
+    this.y = Math.min(Math.max(this.y + dirY * speed * dt, 40), height - 40);
+  }
+
+  activateWarcry(duration, radiusMult, defenseBonus) {
+    this.warcryActive = true;
+    this.warcryTimer = duration;
+    this.defenseBuff = defenseBonus;
+  }
+
+  pushbackAoE(radius, force) {
+    for (const m of monsters) {
+      const dx = m.x - this.x;
+      const dy = m.y - this.y;
+      const d = Math.hypot(dx, dy);
+      if (d < radius && d > 0) {
+        m.vx += (dx / d) * force;
+        m.vy += (dy / d) * force;
+        m.takeDamage(40 * this.getStatMultiplier().damageMult, this);
+      }
+    }
+  }
+
+  pullEnemies(cx, cy, radius, pullForce) {
+    for (const m of monsters) {
+      const dx = cx - m.x;
+      const dy = cy - m.y;
+      const d = Math.hypot(dx, dy);
+      if (d < radius && d > 10) {
+        m.x += (dx / d) * pullForce;
+        m.y += (dy / d) * pullForce;
+      }
+    }
+  }
+
+  attackWhirlwind(radius, baseDmg, hitRate, isVoid = false) {
+    const { damageMult } = this.getStatMultiplier();
+    for (const m of monsters) {
+      const dist = Math.hypot(m.x - this.x, m.y - this.y);
+      if (dist < radius + m.radius) {
+        const dmg = baseDmg * damageMult * (0.8 + Math.random() * 0.4);
+        m.takeDamage(dmg, this);
+        this.addRage(1.5, false);
+      }
+    }
+  }
+
+  damageAoE(cx, cy, radius, baseDmg, pushForce) {
+    const { damageMult } = this.getStatMultiplier();
+    for (const m of monsters) {
+      const dx = m.x - cx;
+      const dy = m.y - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < radius) {
+        m.takeDamage(baseDmg * damageMult, this);
+        if (dist > 0) {
+          m.vx += (dx / dist) * pushForce;
+          m.vy += (dy / dist) * pushForce;
+        }
+      }
+    }
+  }
+
+  startLeap(targetX, targetY, duration, onLand) {
+    this.isLeaping = true;
+    this.startX = this.x;
+    this.startY = this.y;
+    this.targetX = Math.min(Math.max(targetX, 20), width - 20);
+    this.targetY = Math.min(Math.max(targetY, 40), height - 40);
+    this.leapProgress = 0;
+    this.leapDuration = duration;
+    this.onLandCallback = onLand;
+  }
+
+  shadowDash(dirX, dirY, dist) {
+    this.isShadowDash = true;
+    const destX = Math.min(Math.max(this.x + dirX * dist, 20), width - 20);
+    const destY = Math.min(Math.max(this.y + dirY * dist, 40), height - 40);
+
+    const steps = 6;
+    for (let i = 1; i <= steps; i++) {
+      const px = this.x + (destX - this.x) * (i / steps);
+      const py = this.y + (destY - this.y) * (i / steps);
+      this.damageAoE(px, py, 45, 120, 100);
+      addParticle({ x: px, y: py, color: '#3c096c', radius: 8, life: 0.4 });
+    }
+    this.x = destX;
+    this.y = destY;
+    this.isShadowDash = false;
+    addFloatText('暗影衝鋒！', this.x, this.y - 25, '#7b2cbf', 12);
+  }
+
+  invulnerableShadowRam(dirX, dirY, dist) {
+    this.isInvulnerable = true;
+    this.shadowDash(dirX, dirY, dist);
+    setTimeout(() => { this.isInvulnerable = false; }, 300);
+  }
+
+  fireFissure(angle, length, rectWidth, damage) {
+    const { damageMult } = this.getStatMultiplier();
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    for (const m of monsters) {
+      const dx = m.x - this.x;
+      const dy = m.y - this.y;
+      const dot = dx * cos + dy * sin;
+      const perp = Math.abs(-dx * sin + dy * cos);
+
+      if (dot > 0 && dot < length && perp < rectWidth / 2) {
+        m.takeDamage(damage * damageMult, this);
+        m.vx += cos * 250;
+        m.vy += sin * 250;
+      }
+    }
+
+    addGroundDecal({
+      x: this.x + cos * length * 0.5,
+      y: this.y + sin * length * 0.5,
+      angle: angle,
+      width: length,
+      height: rectWidth,
+      type: 'fissure_rect',
+      color: this.san > 60 ? 'rgba(255, 120, 0, 0.8)' : 'rgba(157, 78, 221, 0.85)',
+      life: 1.0
+    });
+  }
+
+  summonTentacleLash() {
+    const { damageMult } = this.getStatMultiplier();
+    addFloatText('克蘇魯觸手抽擊！', this.x, this.y - 30, '#9d4edd', 13);
+    for (const m of monsters) {
+      const d = Math.hypot(m.x - this.x, m.y - this.y);
+      if (d < 160) {
+        m.takeDamage(180 * damageMult, this);
+        m.vx += (m.x - this.x) * 0.8;
+        m.vy += (m.y - this.y) * 0.8;
+      }
+    }
+    for (let i = 0; i < 8; i++) {
+      const ang = (Math.PI * 2 / 8) * i;
+      addGroundDecal({
+        x: this.x + Math.cos(ang) * 50,
+        y: this.y + Math.sin(ang) * 50,
+        type: 'tentacle_lash',
+        angle: ang,
+        color: 'rgba(157, 78, 221, 0.7)',
+        life: 0.6
+      });
+    }
+  }
+
+  castDarkNova(radius, damage) {
+    this.damageAoE(this.x, this.y, radius, damage, 260);
+    addGroundDecal({ x: this.x, y: this.y, width: radius*2, height: radius*2, type: 'dark_nova', color: 'rgba(60, 9, 108, 0.8)', life: 0.5 });
+  }
+
+  castLinearTentacle(angle, length, width, damage) {
+    this.fireFissure(angle, length, width, damage);
+  }
+
+  castGroundTentacleRing(tx, ty, radius, damage) {
+    this.damageAoE(tx, ty, radius, damage, 100);
+    addGroundDecal({ x: tx, y: ty, width: radius*2, height: radius*2, type: 'tentacle_ring', color: 'rgba(199, 125, 255, 0.8)', life: 0.8 });
+  }
+
+  castAbyssalTentacleNova() {
+    const { damageMult } = this.getStatMultiplier();
+    addFloatText('⚡ 深淵觸手新星 (全屏定身/回滿血) ⚡', this.x, this.y - 50, '#ff007f', 18);
+
+    for (const m of monsters) {
+      m.takeDamage(880 * damageMult, this);
+      m.stunTimer = 2.0;
+    }
+
+    this.hp = this.maxHp;
+    addFloatText('生命值回滿 100%！', this.x, this.y - 25, '#00ff88', 16);
+
+    addGroundDecal({
+      x: this.x, y: this.y,
+      width: width * 1.5,
+      height: height * 1.5,
+      type: 'abyssal_nova',
+      color: 'rgba(157, 78, 221, 0.9)',
+      life: 1.5
+    });
+  }
+
+  update(dt) {
+    this.evaluateStrategy();
+
+    if (this.warcryActive) {
+      this.warcryTimer -= dt;
+      if (this.warcryTimer <= 0) {
+        this.warcryActive = false;
+        this.defenseBuff = 0;
+      }
+    }
+
+    if (this.isLeaping) {
+      this.leapProgress += dt / this.leapDuration;
+      if (this.leapProgress >= 1.0) {
+        this.leapProgress = 1.0;
+        this.isLeaping = false;
+        this.x = this.targetX;
+        this.y = this.targetY;
+        if (this.onLandCallback) this.onLandCallback();
+      } else {
+        this.x = this.startX + (this.targetX - this.startX) * this.leapProgress;
+        this.y = this.startY + (this.targetY - this.startY) * this.leapProgress;
+      }
+    }
+
+    for (const zone of corruptionZones) {
+      const d = Math.hypot(this.x - zone.x, this.y - zone.y);
+      if (d < zone.radius) {
+        this.reduceSan(2.5 * dt);
+        if (Math.random() < 0.1) {
+          addParticle({ x: this.x, y: this.y, color: '#7b2cbf', radius: 4, life: 0.4 });
+        }
+      }
+    }
+
+    this.currentStrategy.update(this, dt);
+
+    if (this.isWhirlwind) {
+      this.whirlwindAngle += 18 * dt;
+    }
+  }
+
+  draw(ctx) {
+    ctx.save();
+
+    let renderY = this.y;
+    if (this.isLeaping) {
+      const jumpHeight = Math.sin(this.leapProgress * Math.PI) * 70;
+      renderY -= jumpHeight;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y + 12, this.radius * (1 - this.leapProgress*0.4), 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(this.x, this.y + 12, this.radius * 1.1, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (this.isWhirlwind) {
+      ctx.save();
+      ctx.translate(this.x, renderY);
+      ctx.rotate(this.whirlwindAngle);
+
+      const rad = this.whirlwindRadius;
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      const grad = ctx.createRadialGradient(0, 0, rad * 0.4, 0, 0, rad);
+      if (this.san > 60) {
+        grad.addColorStop(0, 'rgba(255, 215, 0, 0.05)');
+        grad.addColorStop(1, this.warcryActive ? 'rgba(255, 140, 0, 0.6)' : 'rgba(255, 215, 0, 0.4)');
+      } else {
+        grad.addColorStop(0, 'rgba(60, 9, 108, 0.1)');
+        grad.addColorStop(1, this.san <= 0 ? 'rgba(255, 0, 85, 0.7)' : 'rgba(157, 78, 221, 0.6)');
+      }
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = this.san > 60 ? '#ffe066' : '#c77dff';
+      ctx.beginPath();
+      ctx.arc(0, 0, rad * 0.9, 0, Math.PI * 0.7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, rad * 0.9, Math.PI, Math.PI * 1.7);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    if (this.isCharging) {
+      ctx.save();
+      ctx.translate(this.x, renderY);
+      ctx.rotate(this.aimAngle);
+
+      const length = 280;
+      const rectW = 90;
+      ctx.fillStyle = this.san > 60 ? 'rgba(255, 215, 0, 0.25)' : 'rgba(199, 125, 255, 0.35)';
+      ctx.strokeStyle = this.san > 60 ? '#ffd200' : '#e0aaff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+
+      ctx.strokeRect(0, -rectW / 2, length, rectW);
+      ctx.fillRect(0, -rectW / 2, length * this.chargeRatio, rectW);
+      ctx.setLineDash([]);
+
+      ctx.restore();
+    }
+
+    ctx.beginPath();
+    ctx.arc(this.x, renderY, this.radius, 0, Math.PI * 2);
+
+    if (this.san > 80) {
+      ctx.fillStyle = '#f7971e';
+    } else if (this.san > 60) {
+      ctx.fillStyle = '#e63946';
+    } else if (this.san > 0) {
+      ctx.fillStyle = '#7209b7';
+    } else {
+      ctx.fillStyle = '#10002b';
+      ctx.shadowColor = '#ff0055';
+      ctx.shadowBlur = 15;
+    }
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = this.isInvulnerable ? '#00ffff' : '#fff';
+    ctx.stroke();
+
+    if (this.san <= 60) {
+      ctx.fillStyle = '#3c096c';
+      for (let i = 0; i < 4; i++) {
+        const offsetAng = (Math.PI / 3) * i - Math.PI / 2;
+        const tx = this.x + Math.cos(offsetAng) * (this.radius + 10);
+        const ty = renderY + Math.sin(offsetAng) * (this.radius + 10);
+        ctx.beginPath();
+        ctx.arc(tx, ty, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+}
+
+const hero = new Hero(width / 2, height / 2);
+spawnMonsters(8);
+
+class GestureController {
+  constructor(canvas, hero) {
+    this.canvas = canvas;
+    this.hero = hero;
+
+    this.DEADZONE = 14;
+    this.LIFT_PRESS_WINDOW = 330;
+    this.MULTI_TAP_WINDOW = 250;
+    this.FLICK_MAX_TIME = 200;
+    this.FLICK_MIN_DIST = 35;
+    this.HOLD_START_TIME = 260;
+
+    this.isPointerDown = false;
+    this.originX = 0;
+    this.originY = 0;
+    this.currentX = 0;
+    this.currentY = 0;
+    this.downTime = 0;
+    this.lastLiftTime = 0;
+    this.tapCount = 0;
+    this.holdTimerId = null;
+    this.isHolding = false;
+
+    this.setupListeners();
+  }
+
+  setFeedback(text) {
+    const el = document.getElementById('gesture-feedback');
+    if (el) el.innerText = '手勢: ' + text;
+  }
+
+  setupListeners() {
+    this.canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    window.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    window.addEventListener('pointercancel', (e) => this.onPointerUp(e));
+  }
+
+  onPointerDown(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    this.isPointerDown = true;
+    this.originX = x;
+    this.originY = y;
+    this.currentX = x;
+    this.currentY = y;
+    const now = performance.now();
+    const timeSinceLastLift = now - this.lastLiftTime;
+
+    if (timeSinceLastLift < this.LIFT_PRESS_WINDOW) {
+      this.setFeedback('⚡ Lift & Press (換檔戰吼/觸手)');
+      this.hero.currentStrategy.onLiftAndPress(this.hero);
+      this.lastLiftTime = 0;
+      this.tapCount = 0;
+      return;
+    }
+
+    this.downTime = now;
+    this.isHolding = false;
+
+    clearTimeout(this.holdTimerId);
+    this.holdTimerId = setTimeout(() => {
+      if (!this.isPointerDown) return;
+      const dist = Math.hypot(this.currentX - this.originX, this.currentY - this.originY);
+      if (dist <= this.DEADZONE) {
+        this.isHolding = true;
+        this.setFeedback('🔥 Hold (停步長按蓄氣中...)');
+        this.hero.currentStrategy.onHoldStart(this.hero);
+      }
+    }, this.HOLD_START_TIME);
+  }
+
+  onPointerMove(e) {
+    if (!this.isPointerDown) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.currentX = e.clientX - rect.left;
+    this.currentY = e.clientY - rect.top;
+
+    const dx = this.currentX - this.originX;
+    const dy = this.currentY - this.originY;
+    const dist = Math.hypot(dx, dy);
+
+    if (this.isHolding) {
+      const angle = Math.atan2(dy, dx);
+      const chargeRatio = Math.min(1.0, (performance.now() - this.downTime - this.HOLD_START_TIME) / 700);
+      this.setFeedback(`🔥 Hold 蓄力微調瞄準 (${Math.round(chargeRatio*100)}%)`);
+      this.hero.currentStrategy.onHoldAim(this.hero, angle, chargeRatio);
+      return;
+    }
+
+    if (dist > this.DEADZONE) {
+      clearTimeout(this.holdTimerId);
+      this.setFeedback('🌀 Drag (持續旋風斬移動割草)');
+    }
+  }
+
+  onPointerUp(e) {
+    if (!this.isPointerDown) return;
+    this.isPointerDown = false;
+    clearTimeout(this.holdTimerId);
+
+    const now = performance.now();
+    const pressDuration = now - this.downTime;
+    const dx = this.currentX - this.originX;
+    const dy = this.currentY - this.originY;
+    const dist = Math.hypot(dx, dy);
+
+    if (this.isHolding) {
+      this.isHolding = false;
+      const angle = Math.atan2(dy, dx);
+      const chargeRatio = Math.min(1.0, (pressDuration - this.HOLD_START_TIME) / 700);
+      this.setFeedback('💥 Hold 釋放！(崩地巨斬 / 觸手新星)');
+      this.hero.currentStrategy.onHoldRelease(this.hero, angle, chargeRatio);
+      this.hero.isWhirlwind = false;
+      return;
+    }
+
+    if (pressDuration < this.FLICK_MAX_TIME && dist > this.FLICK_MIN_DIST) {
+      const speed = dist / (pressDuration / 1000);
+      if (speed > 250) {
+        this.setFeedback('⚡ Flick (跳躍猛擊 / 暗影衝鋒)');
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+        this.hero.currentStrategy.onFlick(this.hero, dirX, dirY, dist);
+        this.hero.isWhirlwind = false;
+        return;
+      }
+    }
+
+    if (dist <= this.DEADZONE && pressDuration < 250) {
+      this.tapCount++;
+      this.setFeedback(`✨ Multi-Tap x${this.tapCount} (踏地集氣 / 觸手抽擊)`);
+      this.hero.currentStrategy.onMultiTap(this.hero);
+    } else {
+      this.tapCount = 0;
+    }
+
+    this.lastLiftTime = now;
+    this.hero.isWhirlwind = false;
+  }
+
+  update(dt) {
+    if (this.isPointerDown && !this.isHolding) {
+      const dx = this.currentX - this.originX;
+      const dy = this.currentY - this.originY;
+      const dist = Math.hypot(dx, dy);
+      if (dist > this.DEADZONE) {
+        const dirX = dx / dist;
+        const dirY = dy / dist;
+        this.hero.currentStrategy.onDrag(this.hero, dirX, dirY, dt);
+      }
+    }
+  }
+
+  draw(ctx) {
+    if (this.isPointerDown) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(102, 252, 241, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(this.originX, this.originY, this.DEADZONE, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(102, 252, 241, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(this.originX, this.originY);
+      ctx.lineTo(this.currentX, this.currentY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#66fcf1';
+      ctx.beginPath();
+      ctx.arc(this.currentX, this.currentY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+const gesture = new GestureController(canvas, hero);
+
+function drawMap(ctx) {
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  const tileSize = 40;
+  for (let x = 0; x < width; x += tileSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+  }
+  for (let y = 0; y < height; y += tileSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+  }
+
+  for (const z of corruptionZones) {
+    ctx.save();
+    const grad = ctx.createRadialGradient(z.x, z.y, 10, z.x, z.y, z.radius);
+    grad.addColorStop(0, 'rgba(114, 9, 183, 0.45)');
+    grad.addColorStop(1, 'rgba(114, 9, 183, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(181, 23, 158, 0.6)';
+    ctx.font = '9px sans-serif';
+    ctx.fillText('腐蝕畸變紫霧 (掉SAN)', z.x - 45, z.y);
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.fillStyle = '#240046';
+  ctx.beginPath();
+  ctx.arc(evilIdol.x, evilIdol.y, evilIdol.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#9d4edd';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#ff0055';
+  ctx.beginPath();
+  ctx.arc(evilIdol.x, evilIdol.y - 4, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e0aaff';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText('邪神石雕像', evilIdol.x - 25, evilIdol.y + evilIdol.radius + 12);
+  ctx.restore();
+}
+
+let lastTime = performance.now();
+function gameLoop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+
+  gesture.update(dt);
+  hero.update(dt);
+
+  for (let i = monsters.length - 1; i >= 0; i--) {
+    const m = monsters[i];
+    m.update(hero, dt);
+    if (m.hp <= 0) {
+      monsters.splice(i, 1);
+      hero.addRage(8, false);
+    }
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  for (let i = groundDecals.length - 1; i >= 0; i--) {
+    const d = groundDecals[i];
+    d.life -= dt;
+    if (d.life <= 0) groundDecals.splice(i, 1);
+  }
+
+  for (let i = floatTexts.length - 1; i >= 0; i--) {
+    const ft = floatTexts[i];
+    ft.life -= dt;
+    ft.y += ft.vy * dt;
+    if (ft.life <= 0) floatTexts.splice(i, 1);
+  }
+
+  if (monsters.length < 5) {
+    spawnMonsters(4);
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  drawMap(ctx);
+
+  for (const d of groundDecals) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
+    if (d.type === 'fissure_rect') {
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.angle);
+      ctx.fillStyle = d.color;
+      ctx.fillRect(-d.width / 2, -d.height / 2, d.width, d.height);
+    } else {
+      ctx.fillStyle = d.color;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, (d.width || 40) * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  for (const m of monsters) {
+    m.draw(ctx);
+  }
+
+  hero.draw(ctx);
+
+  for (const p of particles) {
+    ctx.save();
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  gesture.draw(ctx);
+
+  for (const ft of floatTexts) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, ft.life);
+    ctx.fillStyle = ft.color;
+    ctx.font = (ft.bold ? 'bold ' : '') + ft.size + 'px sans-serif';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.restore();
+  }
+
+  updateHUD();
+  requestAnimationFrame(gameLoop);
+}
+
+function updateHUD() {
+  document.getElementById('hp-val').innerText = `${Math.round(hero.hp)} / ${hero.maxHp}`;
+  document.getElementById('hp-bar').style.width = `${(hero.hp / hero.maxHp) * 100}%`;
+
+  document.getElementById('rage-val').innerText = `${Math.round(hero.rage)} / ${hero.maxRage}`;
+  document.getElementById('rage-bar').style.width = `${(hero.rage / hero.maxRage) * 100}%`;
+
+  const sanPct = Math.round(hero.san);
+  document.getElementById('san-bar').style.width = `${sanPct}%`;
+
+  const { damageMult } = hero.getStatMultiplier();
+  const buffPct = Math.round((damageMult - 1.0) * 100);
+  document.getElementById('buff-tag').innerText = `攻防 +${buffPct}%`;
+
+  const stageTag = document.getElementById('stage-tag');
+  const sanVal = document.getElementById('san-val');
+  if (hero.san > 80) {
+    sanVal.innerText = `${sanPct}% (純粹凡人)`;
+    stageTag.innerText = '階段 1: 凡人';
+    stageTag.style.color = '#66fcf1';
+  } else if (hero.san > 60) {
+    sanVal.innerText = `${sanPct}% (耳畔低語)`;
+    stageTag.innerText = '階段 2: 低語';
+    stageTag.style.color = '#ff9f1c';
+  } else if (hero.san > 0) {
+    const sub = hero.mutatedStrategy.subStage;
+    sanVal.innerText = `${sanPct}% (肉體畸變 ${sub}/3)`;
+    stageTag.innerText = `階段 3: 畸變-${sub}`;
+    stageTag.style.color = '#e0aaff';
+  } else {
+    sanVal.innerText = `0% (舊日宿體)`;
+    stageTag.innerText = '階段 4: 舊日宿體';
+    stageTag.style.color = '#ff0055';
+  }
+}
+
+document.getElementById('btn-gaze').addEventListener('click', () => {
+  hero.reduceSan(20, '主動凝視邪神像');
+});
+
+document.getElementById('btn-heal').addEventListener('click', () => {
+  hero.hp = hero.maxHp;
+  hero.san = 100;
+  hero.rage = 50;
+  hero.evaluateStrategy();
+  addFloatText('精神理智復原！', hero.x, hero.y - 30, '#00ff88', 14);
+});
+
+document.getElementById('btn-spawn').addEventListener('click', () => {
+  spawnMonsters(6);
+  addFloatText('怪群湧入！', hero.x, hero.y - 20, '#ff4444', 12);
+});
+
+document.getElementById('btn-help').addEventListener('click', () => {
+  document.getElementById('help-modal').style.display = 'flex';
+});
+
+document.getElementById('close-help').addEventListener('click', () => {
+  document.getElementById('help-modal').style.display = 'none';
+});
+
+requestAnimationFrame(gameLoop);
+</script>
 </body>
 </html>
