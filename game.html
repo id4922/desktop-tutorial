@@ -42,6 +42,7 @@
     display: block;
     cursor: crosshair;
   }
+  /* Top HUD */
   #hud {
     position: absolute;
     top: 0;
@@ -136,6 +137,7 @@
     transform: scale(0.92);
   }
 
+  /* Gesture feedback */
   #gesture-feedback {
     position: absolute;
     bottom: 80px;
@@ -156,6 +158,7 @@
     transition: all 0.2s;
   }
 
+  /* Control Panel */
   #tool-panel {
     position: absolute;
     bottom: 12px;
@@ -195,6 +198,7 @@
     color: #fff;
   }
 
+  /* Help Modal */
   #help-modal {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -240,7 +244,7 @@
 <body>
 
 <div id="game-container">
-  <!-- 頂部 HUD -->
+  <!-- Top HUD -->
   <div id="hud">
     <div class="hud-row">
       <div class="bar-container">
@@ -268,7 +272,7 @@
         <div class="bar-bg"><div id="san-bar" class="bar-fill" style="width: 100%;"></div></div>
       </div>
       
-      <!-- 快速增減神智狀態按鈕 -->
+      <!-- 加減按鈕快速調整神智狀態 -->
       <div class="san-control-box">
         <button class="btn-san-adjust" id="btn-san-dec" title="減少 10% SAN">-10</button>
         <button class="btn-san-adjust" id="btn-san-inc" title="增加 10% SAN">+10</button>
@@ -281,10 +285,10 @@
     </div>
   </div>
 
-  <!-- 手勢即時識別反饋 -->
-  <div id="gesture-feedback">手勢狀態: 待機 (按住靜止蓄力 / 滑動旋風)</div>
+  <!-- Gesture Debug Feedback -->
+  <div id="gesture-feedback">手勢: 待機 (到定點按住蓄力 / 短放換檔)</div>
 
-  <!-- 底部快捷操作列 -->
+  <!-- Bottom Interactive Quick Tools -->
   <div id="tool-panel">
     <button class="tool-btn danger" id="btn-gaze" title="凝視邪神像 (-20% SAN)">👁️ 凝視邪神像</button>
     <button class="tool-btn" id="btn-heal">💉 理智/生命回滿</button>
@@ -295,7 +299,7 @@
   <!-- Canvas -->
   <canvas id="canvas"></canvas>
 
-  <!-- 說明彈窗 -->
+  <!-- Help Modal -->
   <div id="help-modal">
     <h2>《深淵輪迴》野蠻人操作與優化指南</h2>
     <h3>長按（Hold）操作優化說明</h3>
@@ -330,6 +334,7 @@
  * 《深淵輪迴》野蠻人原型系統 (優化版)
  */
 
+// 攔截行動端右鍵與長按選單，避免 Android Chrome 系統彈窗
 window.addEventListener('contextmenu', (e) => e.preventDefault(), { passive: false });
 
 const canvas = document.getElementById('canvas');
@@ -422,6 +427,7 @@ class Monster {
       this.attackCooldown -= dt;
       if (this.attackCooldown <= 0) {
         this.attackCooldown = 1.0;
+        // 一般敵人與精英敵人攻擊均不扣神智值 (SAN)，純扣生命 HP
         hero.takeDamage(this.isElite ? 60 : 25);
       }
     }
@@ -781,10 +787,11 @@ class Hero {
     this.isShadowDash = false;
     this.isInvulnerable = false;
 
+    // 蓄力狀態
     this.isCharging = false;
     this.chargeTimer = 0;
     this.chargeRatio = 0;
-    this.chargeMaxTime = 0.65;
+    this.chargeMaxTime = 0.65; // 0.65秒蓄滿
     this.aimAngle = 0;
     this.hasHapticTriggered = false;
 
@@ -853,6 +860,7 @@ class Hero {
     addFloatText(`-${Math.round(actual)}`, this.x + (Math.random()-0.5)*20, this.y - 15, '#ff4d4d', 14);
 
     this.addRage(5, false);
+    // 一般敵人與精英攻擊均不扣 SAN
   }
 
   changeSan(delta, reason = '') {
@@ -1092,7 +1100,7 @@ class Hero {
   update(dt) {
     this.evaluateStrategy();
 
-    // 蓄力狀態平滑推進 (每幀更新)
+    // 蓄力狀態平滑推進 (每幀更新，不再依賴 pointermove)
     if (this.isCharging) {
       this.chargeTimer += dt;
       this.chargeRatio = Math.min(1.0, this.chargeTimer / this.chargeMaxTime);
@@ -1168,7 +1176,7 @@ class Hero {
       ctx.fill();
     }
 
-    // 蓄力狀態：腳下環形蓄力條與半屏巨型軌跡
+    // 蓄力狀態：即刻在腳下繪製環形蓄力能量條 (Radial Charge Meter) 與指示器
     if (this.isCharging) {
       ctx.save();
       ctx.translate(this.x, renderY);
@@ -1181,6 +1189,7 @@ class Hero {
       ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
       ctx.stroke();
 
+      // 蓄力進度弧
       ctx.strokeStyle = this.chargeRatio >= 1.0 ? '#00ffcc' : (this.san > 60 ? '#ffd200' : '#e0aaff');
       ctx.lineWidth = 5;
       ctx.beginPath();
@@ -1192,6 +1201,7 @@ class Hero {
       const length = 280;
       const rectW = 90;
 
+      // 漸層半透明軌跡
       const grad = ctx.createLinearGradient(0, 0, length, 0);
       if (this.san > 60) {
         grad.addColorStop(0, 'rgba(255, 215, 0, 0.45)');
@@ -1209,6 +1219,7 @@ class Hero {
       ctx.strokeRect(0, -rectW / 2, length, rectW);
       ctx.setLineDash([]);
 
+      // 瞄準箭頭中心線
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(length, 0);
@@ -1291,11 +1302,12 @@ class GestureController {
     this.canvas = canvas;
     this.hero = hero;
 
-    this.DEADZONE = 22;
-    this.LIFT_PRESS_WINDOW = 330;
-    this.FLICK_MAX_TIME = 220;
-    this.FLICK_MIN_DIST = 40;
-    this.HOLD_START_TIME = 220;
+    // 方案一：狀態機解耦 (長按開大優先，短放才結算換檔)
+    this.DEADZONE = 22;           // 防手震死區 22px
+    this.LIFT_PRESS_WINDOW = 330; // 0.33 秒內再次按下視為換檔候選
+    this.FLICK_MAX_TIME = 220;    // 0.22 秒內放開且高速判定為 Flick
+    this.FLICK_MIN_DIST = 40;     // Flick 最小位移門檻
+    this.HOLD_START_TIME = 200;   // 按住 200ms 即進入蓄力 (長按優先！)
 
     this.isPointerDown = false;
     this.originX = 0;
@@ -1307,7 +1319,7 @@ class GestureController {
     this.tapCount = 0;
     this.holdTimerId = null;
     this.isHolding = false;
-    this.hasMovedPastDeadzone = false;
+    this.isLiftPressCandidate = false;
 
     this.setupListeners();
   }
@@ -1335,21 +1347,16 @@ class GestureController {
     this.originY = y;
     this.currentX = x;
     this.currentY = y;
-    this.hasMovedPastDeadzone = false;
     const now = performance.now();
     const timeSinceLastLift = now - this.lastLiftTime;
 
-    if (timeSinceLastLift < this.LIFT_PRESS_WINDOW) {
-      this.setFeedback('⚡ Lift & Press (換檔戰吼/觸手)');
-      this.hero.currentStrategy.onLiftAndPress(this.hero);
-      this.lastLiftTime = 0;
-      this.tapCount = 0;
-      return;
-    }
+    // 方案一核心：若在 0.33s 內再次按下，標記為換檔候選，但不立刻觸發！
+    this.isLiftPressCandidate = (timeSinceLastLift < this.LIFT_PRESS_WINDOW);
 
     this.downTime = now;
     this.isHolding = false;
 
+    // 自動預先計算智能瞄準角度 (鎖定最近怪)
     const nearest = this.hero.getNearestMonster();
     if (nearest) {
       this.hero.aimAngle = Math.atan2(nearest.y - this.hero.y, nearest.x - this.hero.x);
@@ -1357,13 +1364,15 @@ class GestureController {
       this.hero.aimAngle = 0;
     }
 
+    // 啟動長按計時器：只要按住超過 200ms，無條件進入開大蓄力！徹底解鎖走到定點開大
     clearTimeout(this.holdTimerId);
     this.holdTimerId = setTimeout(() => {
       if (!this.isPointerDown) return;
       const dist = Math.hypot(this.currentX - this.originX, this.currentY - this.originY);
       if (dist <= this.DEADZONE) {
         this.isHolding = true;
-        this.setFeedback('🔥 Hold (蓄力中！原地鎖定/滑動微調)');
+        this.isLiftPressCandidate = false; // 確定是長按開大，排除換檔
+        this.setFeedback('🔥 Hold (蓄力開大中！鎖定最近怪/滑動瞄準)');
         this.hero.currentStrategy.onHoldStart(this.hero);
       }
     }, this.HOLD_START_TIME);
@@ -1379,6 +1388,7 @@ class GestureController {
     const dy = this.currentY - this.originY;
     const dist = Math.hypot(dx, dy);
 
+    // 若已進入 Hold 蓄力中，滑動為微調瞄準角度
     if (this.isHolding) {
       if (dist > 8) {
         const angle = Math.atan2(dy, dx);
@@ -1388,8 +1398,9 @@ class GestureController {
       return;
     }
 
+    // 若位移大於防手震死區，取消換檔與蓄力，轉為 Drag 旋風斬
     if (dist > this.DEADZONE) {
-      this.hasMovedPastDeadzone = true;
+      this.isLiftPressCandidate = false;
       clearTimeout(this.holdTimerId);
       this.setFeedback('🌀 Drag (持續旋風斬移動割草)');
     }
@@ -1406,8 +1417,10 @@ class GestureController {
     const dy = this.currentY - this.originY;
     const dist = Math.hypot(dx, dy);
 
+    // 1. 若處於 Hold 蓄力狀態，放開即轟出大招！
     if (this.isHolding) {
       this.isHolding = false;
+      this.isLiftPressCandidate = false;
       let finalAngle = this.hero.aimAngle;
       if (dist > 10) {
         finalAngle = Math.atan2(dy, dx);
@@ -1415,9 +1428,22 @@ class GestureController {
       this.setFeedback('💥 Hold 釋放！(崩地巨斬 / 觸手新星)');
       this.hero.currentStrategy.onHoldRelease(this.hero, finalAngle, this.hero.chargeRatio);
       this.hero.isWhirlwind = false;
+      this.lastLiftTime = now;
       return;
     }
 
+    // 2. 方案一核心：若按下時間極短 (< 190ms) 且屬於秒放秒按候選，放開時結算換檔戰吼！
+    if (this.isLiftPressCandidate && pressDuration < 190 && dist <= this.DEADZONE) {
+      this.setFeedback('⚡ Lift & Press (換檔戰吼/觸手)');
+      this.hero.currentStrategy.onLiftAndPress(this.hero);
+      this.isLiftPressCandidate = false;
+      this.lastLiftTime = 0;
+      this.tapCount = 0;
+      this.hero.isWhirlwind = false;
+      return;
+    }
+
+    // 3. Flick (快速輕彈)
     if (pressDuration < this.FLICK_MAX_TIME && dist > this.FLICK_MIN_DIST) {
       const speed = dist / (pressDuration / 1000);
       if (speed > 220) {
@@ -1426,10 +1452,12 @@ class GestureController {
         const dirY = dy / dist;
         this.hero.currentStrategy.onFlick(this.hero, dirX, dirY, dist);
         this.hero.isWhirlwind = false;
+        this.lastLiftTime = now;
         return;
       }
     }
 
+    // 4. Multi-Tap (原地連點)
     if (dist <= this.DEADZONE && pressDuration < 240) {
       this.tapCount++;
       this.setFeedback(`✨ Multi-Tap x${this.tapCount} (踏地集氣 / 觸手抽擊)`);
@@ -1656,6 +1684,7 @@ function updateHUD() {
   }
 }
 
+// 快速增減神智 (SAN) 按鈕監聽
 document.getElementById('btn-san-dec').addEventListener('click', (e) => {
   e.stopPropagation();
   hero.changeSan(-10, '手動微調');
