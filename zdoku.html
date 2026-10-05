@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zoodoku 10x10 Prototype</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f6f8;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        user-select: none;
+    }
+    h1 { color: #2c3e50; }
+    p.instruction {
+        color: #555;
+        max-width: 500px;
+        text-align: center;
+        line-height: 1.5;
+    }
+    #game-board {
+        display: grid;
+        grid-template-columns: repeat(10, 40px);
+        grid-template-rows: repeat(10, 40px);
+        gap: 0;
+        margin: 20px 0;
+        border: 3px solid #333;
+        background-color: #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .cell {
+        width: 40px;
+        height: 40px;
+        box-sizing: border-box;
+        border: 1px dashed #ccc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    /* 區塊邊界加粗 */
+    .border-top { border-top: 2px solid #333; }
+    .border-bottom { border-bottom: 2px solid #333; }
+    .border-left { border-left: 2px solid #333; }
+    .border-right { border-right: 2px solid #333; }
+
+    #message {
+        font-size: 20px;
+        font-weight: bold;
+        color: #27ae60;
+        height: 30px;
+    }
+    .controls { margin-top: 10px; }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+    }
+    button:hover { background-color: #2980b9; }
+</style>
+</head>
+<body>
+
+    <h1>Zoodoku 專家級</h1>
+    <p class="instruction">
+        <strong>規則：</strong><br>
+        1. 每個顏色區塊內只能有一隻貓咪 🐱。<br>
+        2. 每行、每列只能有一隻貓咪。<br>
+        3. 貓咪的周圍八宮格（含對角線）不能有其他貓咪。<br>
+        <em>左鍵：放置/取消貓咪 ｜ 右鍵：標記叉號 ❌</em>
+    </p>
+
+    <div id="message"></div>
+    <div id="game-board" oncontextmenu="return false;"></div>
+    <div class="controls">
+        <button onclick="checkWin()">驗證解答</button>
+        <button onclick="resetBoard()" style="background-color: #e74c3c;">重置</button>
+    </div>
+
+<script>
+    // 10x10 專家級地圖 (區塊編號 0-9)
+    // 刻意設計出 U型、長條梯田與大面積交錯的區塊
+    const regionMap = [
+        [0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+        [0, 3, 3, 0, 1, 1, 1, 2, 2, 2],
+        [3, 3, 3, 0, 4, 4, 1, 2, 2, 2],
+        [3, 3, 3, 4, 4, 4, 5, 5, 5, 2],
+        [6, 6, 3, 4, 4, 4, 5, 5, 5, 5],
+        [6, 6, 6, 4, 4, 8, 8, 5, 5, 5],
+        [6, 6, 6, 9, 8, 8, 8, 7, 7, 7],
+        [6, 6, 9, 9, 8, 8, 8, 7, 7, 7],
+        [9, 9, 9, 9, 8, 8, 8, 7, 7, 7],
+        [9, 9, 9, 9, 9, 8, 8, 8, 7, 7]
+    ];
+
+    // 10種柔和的區塊底色
+    const regionColors = [
+        '#FFD1DC', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF',
+        '#E6B3FF', '#FFB3E6', '#E0E0E0', '#D1F2EB', '#FAD7A1'
+    ];
+
+    const boardElement = document.getElementById('game-board');
+    let cellStates = Array(10).fill().map(() => Array(10).fill(0)); // 0:空, 1:貓, 2:叉
+
+    function initBoard() {
+        boardElement.innerHTML = '';
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 10; c++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+                
+                // 設定顏色
+                const region = regionMap[r][c];
+                cell.style.backgroundColor = regionColors[region];
+
+                // 計算並繪製粗邊界
+                if (r === 0 || regionMap[r-1][c] !== region) cell.classList.add('border-top');
+                if (r === 9 || regionMap[r+1][c] !== region) cell.classList.add('border-bottom');
+                if (c === 0 || regionMap[r][c-1] !== region) cell.classList.add('border-left');
+                if (c === 9 || regionMap[r][c+1] !== region) cell.classList.add('border-right');
+
+                // 點擊事件
+                cell.addEventListener('mousedown', handleInteraction);
+                boardElement.appendChild(cell);
+            }
+        }
+    }
+
+    function handleInteraction(e) {
+        e.preventDefault();
+        const r = parseInt(e.target.dataset.r);
+        const c = parseInt(e.target.dataset.c);
+        let currentState = cellStates[r][c];
+
+        if (e.button === 0) { // 左鍵 (切換 空白 -> 貓咪 -> 空白)
+            currentState = (currentState === 1) ? 0 : 1;
+        } else if (e.button === 2) { // 右鍵 (切換 空白 -> 叉號 -> 空白)
+            currentState = (currentState === 2) ? 0 : 2;
+        }
+
+        cellStates[r][c] = currentState;
+        updateCellView(r, c, e.target);
+        document.getElementById('message').innerText = ""; // 清除訊息
+    }
+
+    function updateCellView(r, c, cellElement) {
+        const state = cellStates[r][c];
+        if (state === 1) {
+            cellElement.innerText = '🐱';
+        } else if (state === 2) {
+            cellElement.innerText = '❌';
+            cellElement.style.fontSize = '16px';
+            cellElement.style.color = 'rgba(0,0,0,0.3)';
+        } else {
+            cellElement.innerText = '';
+        }
+    }
+
+    function checkWin() {
+        let cats = [];
+        for(let r=0; r<10; r++) {
+            for(let c=0; c<10; c++) {
+                if(cellStates[r][c] === 1) cats.push({r, c, region: regionMap[r][c]});
+            }
+        }
+
+        if (cats.length !== 10) {
+            showMessage(`目前放了 ${cats.length} 隻貓咪，需要剛好 10 隻。`, 'red');
+            return;
+        }
+
+        // 規則驗證
+        let rowCount = Array(10).fill(0);
+        let colCount = Array(10).fill(0);
+        let regionCount = Array(10).fill(0);
+
+        for (let cat of cats) {
+            rowCount[cat.r]++;
+            colCount[cat.c]++;
+            regionCount[cat.region]++;
+
+            // 檢查周圍八宮格是否有其他貓咪
+            for (let other of cats) {
+                if (cat !== other) {
+                    let rDiff = Math.abs(cat.r - other.r);
+                    let cDiff = Math.abs(cat.c - other.c);
+                    if (rDiff <= 1 && cDiff <= 1) {
+                        showMessage('失敗！有貓咪靠得太近了（包含對角線）。', 'red');
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 檢查行列與區塊數量
+        if (rowCount.some(v => v !== 1) || colCount.some(v => v !== 1)) {
+            showMessage('失敗！某一行或某一列出現超過一隻貓咪。', 'red');
+            return;
+        }
+        if (regionCount.some(v => v !== 1)) {
+            showMessage('失敗！有一個顏色區塊沒有貓咪，或有多隻貓咪。', 'red');
+            return;
+        }
+
+        showMessage('🎉 恭喜通關！你的邏輯非常完美！', '#27ae60');
+    }
+
+    function showMessage(text, color) {
+        const msg = document.getElementById('message');
+        msg.innerText = text;
+        msg.style.color = color;
+    }
+
+    function resetBoard() {
+        cellStates = Array(10).fill().map(() => Array(10).fill(0));
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.innerText = '';
+        });
+        document.getElementById('message').innerText = '';
+    }
+
+    // 啟動遊戲
+    initBoard();
+</script>
+</body>
+</html>
