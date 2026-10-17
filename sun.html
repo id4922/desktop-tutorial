@@ -1,556 +1,1031 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>太陽、地球、月球：天文與人文互動教學模型</title>
-<style>
-  :root {
-    --bg-dark: #070b19;
-    --panel-bg: rgba(16, 23, 42, 0.88);
-    --border-color: rgba(100, 150, 255, 0.25);
-    --accent: #38bdf8;
-    --accent-gold: #fbbf24;
-    --text-main: #f1f5f9;
-    --text-muted: #94a3b8;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
-    background-color: var(--bg-dark);
-    color: var(--text-main);
-    overflow: hidden;
-    display: flex;
-    height: 100vh;
-    width: 100vw;
-  }
-  /* 左側畫布區 */
-  #canvas-container {
-    flex: 1;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-    cursor: grab;
-  }
-  canvas:active { cursor: grabbing; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>太陽、地球、月球 互動天文與人文教學模型</title>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: rgba(16, 23, 41, 0.88);
+      --border-color: rgba(100, 149, 237, 0.3);
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --gold: #fbbf24;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+      overflow: hidden;
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+    /* 左側畫布區 */
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
 
-  /* 頂部模式切換與輔助開關 */
-  .top-bar {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    right: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    pointer-events: none;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .mode-tabs, .toggles-bar {
-    pointer-events: auto;
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 6px;
-    display: flex;
-    gap: 6px;
-    backdrop-filter: blur(8px);
-  }
-  .btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid transparent;
-    color: var(--text-main);
-    padding: 8px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
-  }
-  .btn:hover { background: rgba(255, 255, 255, 0.15); }
-  .btn.active {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: var(--accent);
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .btn-gold.active {
-    background: rgba(251, 191, 36, 0.2);
-    border-color: var(--accent-gold);
-    color: var(--accent-gold);
-  }
-  .scale-note {
-    position: absolute;
-    bottom: 135px;
-    left: 18px;
-    font-size: 12px;
-    color: var(--text-muted);
-    pointer-events: none;
-    background: rgba(0,0,0,0.45);
-    padding: 4px 8px;
-    border-radius: 4px;
-  }
+    /* 頂部控制列 */
+    .top-bar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .btn-group {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    button {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      border: 1px solid transparent;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+    }
+    button.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: bold;
+    }
+    button.toggle-btn.active {
+      background: rgba(251, 191, 36, 0.25);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
 
-  /* 底部控制列 */
-  .bottom-controls {
-    position: absolute;
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
-    background: var(--panel-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 14px 20px;
-    backdrop-filter: blur(8px);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .control-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .slider-wrap {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 220px;
-  }
-  input[type="range"] {
-    flex: 1;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-  .preset-group {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+    /* 底部時間軸與快捷面板 */
+    .bottom-controls {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px 20px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .slider-row label {
+      min-width: 110px;
+      font-size: 14px;
+      color: var(--gold);
+      font-weight: bold;
+    }
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .preset-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .preset-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-right: 4px;
+    }
 
-  /* 右側知識解說面板 */
-  #info-panel {
-    width: 410px;
-    background: var(--panel-bg);
-    border-left: 1px solid var(--border-color);
-    padding: 22px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    z-index: 10;
-  }
-  .panel-header {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 12px;
-  }
-  .panel-tag {
-    display: inline-block;
-    font-size: 12px;
-    color: var(--accent);
-    background: rgba(56, 189, 248, 0.12);
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-bottom: 6px;
-  }
-  .panel-title {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--accent-gold);
-  }
-  .panel-subtitle {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-  .metrics-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .metric-card {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    padding: 10px 12px;
-  }
-  .metric-label { font-size: 12px; color: var(--text-muted); }
-  .metric-value { font-size: 15px; font-weight: 600; margin-top: 4px; color: #fff; }
-  
-  .info-section {
-    background: rgba(255, 255, 255, 0.03);
-    border-left: 3px solid var(--accent);
-    padding: 12px 14px;
-    border-radius: 0 8px 8px 0;
-  }
-  .info-section.humanities {
-    border-left-color: var(--accent-gold);
-  }
-  .info-section h3 {
-    font-size: 15px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .info-section ul {
-    padding-left: 18px;
-    font-size: 13.5px;
-    line-height: 1.65;
-    color: #cbd5e1;
-  }
-  .info-section li { margin-bottom: 6px; }
-  .highlight { color: var(--accent-gold); font-weight: 600; }
-
-  @media (max-width: 960px) {
-    body { flex-direction: column; overflow-y: auto; }
-    #canvas-container { min-height: 60vh; }
-    #info-panel { width: 100%; border-left: none; border-top: 1px solid var(--border-color); }
-  }
-</style>
+    /* 右側解說資訊欄 */
+    .info-panel {
+      width: 390px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--border-color);
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+    .info-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+    .info-tag {
+      display: inline-block;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+    .info-title {
+      font-size: 22px;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .info-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .card h3 {
+      font-size: 15px;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card p, .card li {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #cbd5e1;
+    }
+    .card ul {
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-box {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--gold);
+    }
+    .stat-label { font-size: 12px; color: var(--text-muted); }
+    .stat-val { font-size: 15px; font-weight: bold; color: #fff; margin-top: 2px; }
+  </style>
 </head>
 <body>
 
-<!-- 左側互動視覺區 -->
-<div id="canvas-container">
-  <canvas id="simCanvas"></canvas>
-
-  <div class="top-bar">
-    <div class="mode-tabs">
-      <button class="btn active" id="tab-seasons" onclick="switchMode('seasons')">🌍 模式 A：四季與二分二至</button>
-      <button class="btn" id="tab-eclipse" onclick="switchMode('eclipse')">🌑 模式 B：朔望月與日月蝕</button>
-    </div>
-    <div class="toggles-bar">
-      <button class="btn active" id="toggle-lines" onclick="toggleOption('lines')">輔助軸線</button>
-      <button class="btn active" id="toggle-rays" onclick="toggleOption('rays')">太陽光束/陰影</button>
-      <button class="btn" id="toggle-view" onclick="toggleOption('topView')">切換俯視/斜視</button>
-    </div>
-  </div>
-
-  <div class="scale-note">💡 註：為清楚呈現自轉軸傾角、晨昏線與本影錐，天體大小與距離採「教學示意比例」（非真實比例）。可拖曳畫面微調視角。</div>
-
-  <!-- 模式 A 控制列 -->
-  <div class="bottom-controls" id="controls-seasons">
-    <div class="control-row">
-      <button class="btn" id="play-btn" onclick="togglePlay()">⏸ 暫停公轉</button>
-      <div class="slider-wrap">
-        <span style="font-size:13px; color:var(--text-muted);">公轉進度：</span>
-        <input type="range" id="day-slider" min="0" max="365" step="0.5" value="80" oninput="onDaySlider(this.value)">
-        <span id="day-label" style="min-width:95px; font-size:14px; font-weight:600;">3月21日</span>
+  <!-- 左側互動視覺區 -->
+  <div id="canvas-container">
+    <div class="top-bar">
+      <!-- 模式切換 -->
+      <div class="btn-group">
+        <button id="btn-mode-seasons" class="active" onclick="switchMode('seasons')">🌍 四季與二分二至模式</button>
+        <button id="btn-mode-eclipse" onclick="switchMode('eclipse')">🌑 日月蝕與朔望模式</button>
       </div>
-      <div class="preset-group">
-        <button class="btn btn-gold active" id="btn-spring" onclick="setSeason(0)">🌱 春分 (3/21)</button>
-        <button class="btn btn-gold" id="btn-summer" onclick="setSeason(91.25)">☀️ 夏至 (6/21)</button>
-        <button class="btn btn-gold" id="btn-autumn" onclick="setSeason(182.5)">🍂 秋分 (9/23)</button>
-        <button class="btn btn-gold" id="btn-winter" onclick="setSeason(273.75)">❄️ 冬至 (12/22)</button>
+      <!-- 視覺輔助開關 -->
+      <div class="btn-group">
+        <button id="opt-axis" class="toggle-btn active" onclick="toggleOption('axis')">地軸與回歸線</button>
+        <button id="opt-rays" class="toggle-btn active" onclick="toggleOption('rays')">太陽直射與平行光</button>
+        <button id="opt-shadow" class="toggle-btn active" onclick="toggleOption('shadow')">本影與半影區</button>
+        <button id="opt-anim" class="toggle-btn" onclick="toggleOption('anim')">▶ 自動運轉</button>
       </div>
     </div>
-  </div>
 
-  <!-- 模式 B 控制列 -->
-  <div class="bottom-controls" id="controls-eclipse" style="display:none;">
-    <div class="control-row">
-      <span style="font-size:13px; color:var(--text-muted);">選擇蝕象與朔望情境：</span>
-      <div class="preset-group">
-        <button class="btn btn-gold active" id="ecl-total-solar" onclick="setEclipse('total_solar')">🌑 日全蝕</button>
-        <button class="btn btn-gold" id="ecl-annular-solar" onclick="setEclipse('annular_solar')">💍 日環蝕</button>
-        <button class="btn btn-gold" id="ecl-partial-solar" onclick="setEclipse('partial_solar')">🌗 日偏蝕</button>
-        <button class="btn btn-gold" id="ecl-total-lunar" onclick="setEclipse('total_lunar')">🌕 月全蝕 (血月)</button>
-        <button class="btn btn-gold" id="ecl-partial-lunar" onclick="setEclipse('partial_lunar')">🌖 月偏蝕</button>
-        <button class="btn btn-gold" id="ecl-none" onclick="setEclipse('normal_syzygy')">✨ 一般朔望 (未交食)</button>
+    <canvas id="simCanvas"></canvas>
+
+    <!-- 底部控制面板 -->
+    <div class="bottom-controls">
+      <!-- 四季專用控制項 -->
+      <div id="controls-seasons">
+        <div class="slider-row" style="margin-bottom: 10px;">
+          <label id="day-label">公轉位置：春分</label>
+          <input type="range" id="orbit-slider" min="0" max="360" value="0" oninput="onOrbitSlider(this.value)">
+        </div>
+        <div class="preset-row">
+          <span class="preset-label">重要節氣快捷鍵：</span>
+          <button onclick="setSeason('spring')">🌱 春分 (約3/21)</button>
+          <button onclick="setSeason('summer')">☀️ 夏至 (約6/21)</button>
+          <button onclick="setSeason('autumn')">🍂 秋分 (約9/23)</button>
+          <button onclick="setSeason('winter')">❄️ 冬至 (約12/22)</button>
+        </div>
       </div>
-    </div>
-    <div class="control-row">
-      <div class="slider-wrap">
-        <span style="font-size:13px; color:var(--text-muted);">微調月球通過陰影進度：</span>
-        <input type="range" id="eclipse-phase-slider" min="-100" max="100" value="0" oninput="onEclipseSlider(this.value)">
-        <button class="btn" onclick="resetEclipseSlider()">置中對齊 (食甚)</button>
+
+      <!-- 日月蝕專用控制項 -->
+      <div id="controls-eclipse" style="display: none;">
+        <div class="slider-row" style="margin-bottom: 10px;">
+          <label id="lunar-label">月球相位角：0°</label>
+          <input type="range" id="lunar-slider" min="0" max="360" value="180" oninput="onLunarSlider(this.value)">
+        </div>
+        <div class="preset-row">
+          <span class="preset-label">天文交食模擬：</span>
+          <button onclick="setEclipse('solar_total')">🌑 日全蝕</button>
+          <button onclick="setEclipse('solar_annular')">💍 日環蝕</button>
+          <button onclick="setEclipse('solar_partial')">🌗 日偏蝕</button>
+          <button onclick="setEclipse('lunar_total')">🩸 月全蝕 (血月)</button>
+          <button onclick="setEclipse('lunar_partial')">🌒 月偏蝕</button>
+          <button onclick="setEclipse('normal_new')">⚪ 一般初一 (無日蝕)</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- 右側資訊解說區 -->
-<aside id="info-panel">
-  <div class="panel-header">
-    <span class="panel-tag" id="info-tag">二十四節氣・二分二至</span>
-    <div class="panel-title" id="info-title">春分 (Vernal Equinox)</div>
-    <div class="panel-subtitle" id="info-subtitle">約每年 3 月 20 日或 3 月 21 日</div>
+  <!-- 右側天文與人文解說欄 -->
+  <div class="info-panel">
+    <div class="info-header">
+      <span class="info-tag" id="info-badge">二分二至・太陽黃經 0°</span>
+      <h2 class="info-title" id="info-title">春分 (Vernal Equinox)</h2>
+      <p class="info-subtitle" id="info-subtitle">太陽直射赤道，全球晝夜均分之日</p>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="stat-label" id="stat1-label">太陽直射緯度</div>
+        <div class="stat-val" id="stat1-val">赤道 (0.0°)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label" id="stat2-label">北半球晝夜狀態</div>
+        <div class="stat-val" id="stat2-val">晝夜等長 (各12h)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔭 天文物理機制</h3>
+      <ul id="astro-list"></ul>
+    </div>
+
+    <div class="card">
+      <h3>🏛️ 人文歷史與民俗典故</h3>
+      <ul id="culture-list"></ul>
+    </div>
   </div>
 
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-label" id="m1-label">太陽直射緯度</div>
-      <div class="metric-value" id="m1-val">赤道 (0.0°)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label" id="m2-label">北半球晝夜狀態</div>
-      <div class="metric-value" id="m2-val">全球晝夜等長 (各12h)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label" id="m3-label">台灣正午太陽仰角</div>
-      <div class="metric-value" id="m3-val">約 66.5° (以北回歸線計)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label" id="m4-label">北極圈內現象</div>
-      <div class="metric-value" id="m4-val">晨昏線通過極點</div>
-    </div>
-  </div>
+  <script>
+    // ==========================================
+    // 1. 狀態與資料庫定義
+    // ==========================================
+    const state = {
+      mode: 'seasons',       // 'seasons' | 'eclipse'
+      orbitAngle: 0,         // 0=春分, 90=夏至, 180=秋分, 270=冬至
+      lunarAngle: 180,       // 180=朔(日蝕側), 0=望(月蝕側)
+      nodeOffset: 0,         // 黃白交角高度偏移 (-1 ~ 1)
+      moonDistance: 1.0,     // 1.0=近地點(全蝕), 1.25=遠地點(環蝕)
+      eclipseType: 'solar_total',
+      options: {
+        axis: true,
+        rays: true,
+        shadow: true,
+        anim: false
+      }
+    };
 
-  <div class="info-section">
-    <h3>🔭 天文物理機制</h3>
-    <ul id="astro-list"></ul>
-  </div>
+    const seasonData = {
+      spring: {
+        angle: 0,
+        badge: '二十四節氣・太陽黃經 0°',
+        title: '春分 (Vernal Equinox)',
+        subtitle: '約每年 3月20日 或 3月21日',
+        stat1: '赤道 (0.0°)',
+        stat2: '全球晝夜等長',
+        astro: [
+          '地球自轉軸與日地連線垂直，太陽正午直射「赤道 (0°)」。',
+          '晨昏線（晝夜分界線）正好通過南北兩極點，全球各地白晝與黑夜皆為 12 小時。',
+          '春分過後，太陽直射點開始向北半球移動，北半球白晝逐漸長於黑夜。'
+        ],
+        culture: [
+          '【祭日大典】：古代帝王有「春分祭日、秋分祭月」之禮（如北京日壇朝日）。',
+          '【春分立蛋】：民間流行於春分豎立雞蛋，象徵天地陰陽平衡、萬物復甦與好運。',
+          '【世界曆法】：波斯新年（Nowruz）以春分為歲首；基督教復活節則定在「春分滿月後的第一個星期日」。'
+        ]
+      },
+      summer: {
+        angle: 90,
+        badge: '二十四節氣・太陽黃經 90°',
+        title: '夏至 (Summer Solstice)',
+        subtitle: '約每年 6月21日 或 6月22日',
+        stat1: '北回歸線 (23.5°N)',
+        stat2: '北半球白晝最長',
+        astro: [
+          '因地軸傾斜 23.5°，此時北半球傾向太陽，太陽直射「北回歸線（23.5°N，經過台灣嘉義水上、花蓮瑞穗）」。',
+          '北半球迎來全年白晝最長、黑夜最短的一天；北回歸線地區正午太陽仰角達 90°（立竿不見影）。',
+          '北極圈（66.5°N 以北）全天處於受光面，出現「永晝（極晝）」；南極圈則為「永夜」。'
+        ],
+        culture: [
+          '【祭地與農事】：古人於夏至「祭地祇」祈求農作豐收，並藉圭表測量最短日影以定曆法。',
+          '【夏至飲食】：「冬至湯圓夏至麵」，此時冬小麥剛收成，民間有夏至吃涼麵消暑的習俗。',
+          '【巨石陣與仲夏節】：英國巨石陣（Stonehenge）主軸線精準對準夏至日出方位；北歐各國則盛大慶祝仲夏節。'
+        ]
+      },
+      autumn: {
+        angle: 180,
+        badge: '二十四節氣・太陽黃經 180°',
+        title: '秋分 (Autumnal Equinox)',
+        subtitle: '約每年 9月22日 或 9月23日',
+        stat1: '赤道 (0.0°)',
+        stat2: '全球晝夜等長',
+        astro: [
+          '太陽直射點由北向南再次回到「赤道 (0°)」，晨昏線再次通過南北極點。',
+          '全球晝夜再次等長（各 12 小時）。',
+          '秋分過後，太陽直射點移入南半球，北半球開始晝短夜長，北極點開始進入半年永夜。'
+        ],
+        culture: [
+          '【夕月與中秋節淵源】：古帝王於秋分「夕月於西郊」。因秋分在農曆八月日子不固定、未必有圓月，後世遂將祭月與賞月固定於農曆八月十五「中秋節」。',
+          '【秋收感恩】：東亞與世界農耕文明慶祝豐收、感念土地的關鍵時節。'
+        ]
+      },
+      winter: {
+        angle: 270,
+        badge: '二十四節氣・太陽黃經 270°',
+        title: '冬至 (Winter Solstice)',
+        subtitle: '約每年 12月21日 或 12月22日',
+        stat1: '南回歸線 (23.5°S)',
+        stat2: '北半球黑夜最長',
+        astro: [
+          '地球北半球偏離太陽，太陽直射最南端的「南回歸線 (23.5°S)」。',
+          '北半球白晝最短、黑夜最長，正午太陽仰角全年最低，正午萬物影子最長。',
+          '北極圈內完全處於背光面，出現「永夜」；南極圈則為「永晝」。冬至後直射點北返，白晝漸長。'
+        ],
+        culture: [
+          '【冬至大如年】：古人認為「冬至一陽生」，代表陽光與生機開始回歸，周朝甚至以冬至所在之月為歲首（正月）。',
+          '【祭天大典】：歷代帝王於冬至前往天壇舉行最隆重的「祭天」大典。',
+          '【民俗飲食】：台灣與江南吃湯圓象徵「添歲、團圓」，北方吃水餃；古羅馬農神節與西方耶誕節期亦源於冬至慶祝光明重生的傳統。'
+        ]
+      }
+    };
 
-  <div class="info-section humanities">
-    <h3>🏛️ 人文歷史與民俗事件</h3>
-    <ul id="human-list"></ul>
-  </div>
-</aside>
+    const eclipseData = {
+      solar_total: {
+        lunarAngle: 180, nodeOffset: 0, dist: 0.95,
+        badge: '農曆初一（朔）・日地月一直線',
+        title: '日全蝕 (Total Solar Eclipse)',
+        subtitle: '月球本影錐觸及地表，完全遮蔽太陽日盤',
+        stat1: '太陽－月球－地球',
+        stat2: '月球本影區 (Umbra)',
+        astro: [
+          '發生於農曆初一（朔），且月球剛好通過「黃白交點」，日、月、地三者精準連成一線。',
+          '月球距離地球較近，視直徑略大於太陽，其深色「本影錐（Umbra）」落在地表狹長區域內。',
+          '本影區內的觀測者會看見白晝瞬間變暗，並能肉眼觀測到平時被強光掩蓋的太陽外層大氣「日冕（Corona）」與倍里珠。'
+        ],
+        culture: [
+          '【仲康日食与天狗食日】：《尚書》記載了人類最早日蝕紀錄之一；古人視日蝕為上天對君王的警示，民間則會擊鼓鳴鑼以「救日」。',
+          '【愛丁頓驗證廣義相對論】：1919年日全蝕期間，天文學家愛丁頓拍攝太陽邊緣星光，證實太陽重力場會使光線偏折，一舉證實愛因斯坦的廣義相對論。'
+        ]
+      },
+      solar_annular: {
+        lunarAngle: 180, nodeOffset: 0, dist: 1.25,
+        badge: '農曆初一（朔）・月球位於遠地點',
+        title: '日環蝕 (Annular Solar Eclipse)',
+        subtitle: '月球視直徑小於太陽，露出耀眼金環',
+        stat1: '太陽－月球－地球',
+        stat2: '偽本影區 (Antumbra)',
+        astro: [
+          '月球繞地軌道為橢圓形。當日蝕發生時，若月球剛好在「遠地點」附近，看起來會比太陽小。',
+          '月球的本影錐在半空中就交會結束，未能觸及地球表面；地表觀測者處於「偽本影區」。',
+          '月球僅遮住太陽中心部位，周圍留下一圈璀璨的金色光環，俗稱「上帝的金戒指」。'
+        ],
+        culture: [
+          '【精密曆法推算】：古代中國曆法家（如祖沖之、郭守敬）透過觀測交食與月球快慢變化，發現了月球軌道遠近對日蝕型態的影響。',
+          '【台灣經典天象】：2012年5月與2020年6月21日（恰逢夏至），台灣本島及金門、嘉義等地皆曾見證壯觀的日環蝕奇景。'
+        ]
+      },
+      solar_partial: {
+        lunarAngle: 180, nodeOffset: 0.45, dist: 1.0,
+        badge: '農曆初一（朔）・略微偏離交點',
+        title: '日偏蝕 (Partial Solar Eclipse)',
+        subtitle: '觀測者位於月球半影區，太陽如被咬了一口',
+        stat1: '太陽－月球－地球',
+        stat2: '月球半影區 (Penumbra)',
+        astro: [
+          '日、月、地三者未完全重合在同一直線上，或觀測者位於全蝕／環蝕帶外圍的「半影區（Penumbra）」。',
+          '月球僅遮擋了部分太陽盤面，使太陽呈現彎月般的缺角形狀。'
+        ],
+        culture: [
+          '【古代交食紀錄】：中國二十四史《天文志》中累積了上千筆日蝕紀錄，為現代天文學研究「地球自轉長期減慢」提供了珍貴的歷史數據。'
+        ]
+      },
+      lunar_total: {
+        lunarAngle: 0, nodeOffset: 0, dist: 1.0,
+        badge: '農曆十五（望）・地球居中遮光',
+        title: '月全蝕／血月 (Total Lunar Eclipse)',
+        subtitle: '月球完全進入地球本影，大氣折射染紅月面',
+        stat1: '太陽－地球－月球',
+        stat2: '地球本影區 (Umbra)',
+        astro: [
+          '發生於農曆十五或十六（滿月），地球位於太陽與月球之間，且月球通過黃白交點，完全進入地球巨大的「本影錐」中。',
+          '【為什麼月全蝕是紅色的（血月）？】：太陽光穿過地球大氣層時，波長較短的藍紫光被空氣分子散射掉（瑞利散射），波長較長的「紅光」則被大氣層折射進入地球本影中，投射在月球表面，使其呈現暗銅紅色。',
+          '只要在地球處於夜晚的半球，所有人都可同時目睹月蝕（不像日蝕僅限狹窄區域）。'
+        ],
+        culture: [
+          '【亞里斯多德證明地球是圓的】：西元前4世紀，古希臘哲學家亞里斯多德在《論天》中指出，月蝕時地球投射在月面上的影子邊緣永遠是「圓弧形」，成為地球是球體的鐵證。',
+          '【大航海時代測經度】：哥倫布與早期航海家曾利用不同地點觀測同一次月蝕的當地時間差，來推算所在地的地理經度。'
+        ]
+      },
+      lunar_partial: {
+        lunarAngle: 0, nodeOffset: 0.55, dist: 1.0,
+        badge: '農曆十五（望）・部分進入本影',
+        title: '月偏蝕 (Partial Lunar Eclipse)',
+        subtitle: '月球僅部分進入地球本影區',
+        stat1: '太陽－地球－月球',
+        stat2: '部分本影＋半影',
+        astro: [
+          '滿月時月球距離黃白交點稍遠，僅有一部分月面擦過地球的深色本影區。',
+          '月面看起來就像缺了一塊黑影，俗稱「天狗食月」。'
+        ],
+        culture: [
+          '【沙羅週期 (Saros)】：古巴比倫與中國天文學家皆發現，每經過約 18年11天8小時（6585.32天），日、地、月與交點的相對位置會高度重複，可藉此預測未來的日月蝕。'
+        ]
+      },
+      normal_new: {
+        lunarAngle: 180, nodeOffset: 1.0, dist: 1.0,
+        badge: '一般農曆初一・黃白交角 5.14°',
+        title: '一般朔月（無日蝕發生）',
+        subtitle: '為什麼不是每個月初一都有日蝕？',
+        stat1: '月球偏離黃道面',
+        stat2: '本影掠過地球上方/下方',
+        astro: [
+          '月球繞地球的「白道面」與地球繞太陽的「黃道面」存在約 5.14° 的夾角。',
+          '因此大多數的農曆初一（朔），月球的本影錐會從地球北極上方或南極下方掠過太空，不會投射到地球表面，故不會發生日蝕。',
+          '同理，大多數農曆十五（望）月球也會從地球本影上方或下方通過，不會發生月蝕。'
+        ],
+        culture: [
+          '【羅睺與計都】：古代印度與中國星命學將黃道與白道的兩個交點（升交點與降交點）擬人化為「羅睺」與「計都」兩顆隱形暗星，認為日月行經此二處便會被吞蝕。'
+        ]
+      }
+    };
 
-<script>
-const canvas = document.getElementById('simCanvas');
-const ctx = canvas.getContext('2d');
+    // ==========================================
+    // 2. 全域互動函式 (綁定至 window 防止 ReferenceError)
+    // ==========================================
+    function switchMode(mode) {
+      state.mode = mode;
+      document.getElementById('btn-mode-seasons').classList.toggle('active', mode === 'seasons');
+      document.getElementById('btn-mode-eclipse').classList.toggle('active', mode === 'eclipse');
+      document.getElementById('controls-seasons').style.display = mode === 'seasons' ? 'block' : 'none';
+      document.getElementById('controls-eclipse').style.display = mode === 'eclipse' ? 'block' : 'none';
 
-// 狀態管理
-let state = {
-  mode: 'seasons', // 'seasons' | 'eclipse'
-  playing: true,
-  dayOfYear: 0, // 0 = 春分 (3/21), 91.25 = 夏至, 182.5 = 秋分, 273.75 = 冬至
-  showLines: true,
-  showRays: true,
-  topView: false,
-  tiltPitch: 0.42, // 軌道橢圓俯仰比
-  eclipseType: 'total_solar',
-  eclipseOffset: 0, // -100 ~ 100 微調進度
-  stars: []
-};
+      if (mode === 'seasons') {
+        document.getElementById('stat1-label').textContent = '太陽直射緯度';
+        document.getElementById('stat2-label').textContent = '北半球晝夜狀態';
+        updateSeasonInfoByAngle(state.orbitAngle);
+      } else {
+        document.getElementById('stat1-label').textContent = '天體排列順序';
+        document.getElementById('stat2-label').textContent = '觀測落入影區';
+        setEclipse(state.eclipseType);
+      }
+    }
 
-// 初始化背景星空
-for (let i = 0; i < 160; i++) {
-  state.stars.push({
-    x: Math.random(),
-    y: Math.random(),
-    r: Math.random() * 1.5 + 0.4,
-    alpha: Math.random() * 0.6 + 0.2
-  });
-}
+    function toggleOption(optKey) {
+      state.options[optKey] = !state.options[optKey];
+      const btn = document.getElementById('opt-' + optKey);
+      if (btn) btn.classList.toggle('active', state.options[optKey]);
+    }
 
-// 資料庫：四季與二分二至
-const seasonData = {
-  spring: {
-    tag: '二十四節氣・二分二至',
-    title: '春分 (Vernal Equinox)',
-    subtitle: '約每年 3 月 20 日 ～ 3 月 21 日',
-    astro: [
-      '地球公轉至地軸與日地連線垂直的位置，<span class="highlight">太陽直射赤道 (0°)</span>。',
-      '晨昏線正好通過南北極點，全球各地<span class="highlight">晝夜等長</span>（白晝與黑夜各 12 小時）。',
-      '春分過後，太陽直射點開始移向北半球，北半球白晝逐漸長於黑夜。'
-    ],
-    human: [
-      '<span class="highlight">朝日祭典</span>：古代帝王遵循「春分朝日，秋分夕月」禮制，於春分前往東郊日壇祭祀太陽。',
-      '<span class="highlight">春分立蛋</span>：民間流傳在春分這天立蛋最容易成功，象徵天地陰陽平衡與萬物復甦的生機。',
-      '<span class="highlight">曆法基準</span>：波斯新年（Nowruz）以春分為歲首；西方基督教「復活節」則定於春分月圓後的第一個星期日。'
-    ]
-  },
-  summer: {
-    tag: '二十四節氣・二分二至',
-    title: '夏至 (Summer Solstice)',
-    subtitle: '約每年 6 月 21 日 ～ 6 月 22 日',
-    astro: [
-      '地軸北端傾向太陽達最大角度，<span class="highlight">太陽直射北回歸線 (23.5°N)</span>（通過台灣嘉義水上、花蓮瑞穗）。',
-      '北半球迎来全年<span class="highlight">白晝最長、黑夜最短</span>的一天；北回歸線地區正午出現「立竿不見影」。',
-      '北極圈（66.5°N 以北）全境進入<span class="highlight">永晝（極晝）</span>，南極圈則進入永夜。'
-    ],
-    human: [
-      '<span class="highlight">祭地與收麥</span>：古人於夏至「祭地祇」感念土地滋養；民俗云「冬至湯圓夏至麵」，此時新麥登場，民間盛行吃涼麵消暑。',
-      '<span class="highlight">巨石陣天文對準</span>：英國史前遺跡巨石陣（Stonehenge）的主軸線，精準對準夏至清晨日出的方向。',
-      '<span class="highlight">台灣北回歸線標</span>：嘉義水上設有三代北回歸線標誌，是全球最早設立北回歸線紀念碑的地點之一。'
-    ]
-  },
-  autumn: {
-    tag: '二十四節氣・二分二至',
-    title: '秋分 (Autumnal Equinox)',
-    subtitle: '約每年 9 月 22 日 ～ 9 月 23 日',
-    astro: [
-      '太陽直射點由北向南再次回到<span class="highlight">赤道 (0°)</span>，晨昏線再次通過南北極點。',
-      '全球迎來一年中第二次<span class="highlight">晝夜等長</span>。',
-      '秋分過後，太陽直射點進入南半球，北半球開始晝短夜長，北極點開始進入長達半年的極夜。'
-    ],
-    human: [
-      '<span class="highlight">夕月與中秋節淵源</span>：古帝王於秋分祭月（夕月於西郊）。因秋分在農曆八月日期不固定、未必有圓月，唐宋後將祭月賞月習俗固定於農曆八月十五中秋節。',
-      '<span class="highlight">秋收感恩</span>：東亞農耕社會將秋分視為檢視秋收成果、舉辦報秋祭祀的重要節點。'
-    ]
-  },
-  winter: {
-    tag: '二十四節氣・二分二至',
-    title: '冬至 (Winter Solstice)',
-    subtitle: '約每年 12 月 21 日 ～ 12 月 22 日',
-    astro: [
-      '地軸北端背離太陽達最大角度，<span class="highlight">太陽直射南回歸線 (23.5°S)</span>。',
-      '北半球<span class="highlight">白晝最短、黑夜最長</span>，正午太陽仰角全年最低，物體日影最長。',
-      '北極圈內全境出現<span class="highlight">永夜</span>；冬至過後太陽直射點北返，北半球白晝逐日增長。'
-    ],
-    human: [
-      '<span class="highlight">冬至大如年</span>：《易經》稱「冬至一陽生」，古人視冬至為陽光與生機重返的起點，周代更以冬至所在之月為歲首（正月）。',
-      '<span class="highlight">圭表測影與祭天</span>：古代天文官利用「圭表」測量冬至最長正午日影以定回歸年長度；帝王則於北京天壇舉行最隆重的冬至祭天大典。',
-      '<span class="highlight">吃湯圓與農神節</span>：台灣與江南吃湯圓象徵「添歲」團圓，北方則吃水餃；古羅馬農神節（Saturnalia）與耶誕節期亦源於冬至慶祝光明回歸。'
-    ]
-  }
-};
+    function setSeason(seasonKey) {
+      const data = seasonData[seasonKey];
+      if (!data) return;
+      state.orbitAngle = data.angle;
+      document.getElementById('orbit-slider').value = data.angle;
+      renderInfoCard(data);
+      updateDayLabel(data.angle);
+    }
 
-// 資料庫：日月蝕模式
-const eclipseData = {
-  total_solar: {
-    tag: '朔望與交食・農曆初一 (朔)',
-    title: '日全蝕 (Total Solar Eclipse)',
-    subtitle: '排列：太陽 － 月球 － 地球（落入本影錐）',
-    m1: ['發生農曆日期', '初一 (朔 New Moon)'],
-    m2: ['黃白交點條件', '月球位於交點附近 (約0°偏移)'],
-    m3: ['地月距離狀態', '近地點附近 (視直徑 ≥ 太陽)'],
-    m4: ['地表可見範圍', '狹長本影帶 (寬約 100~250km)'],
-    astro: [
-      '月球運行至太陽與地球之間，且正好通過<span class="highlight">黃白交點</span>，三者精準連成一直線。',
-      '月球距離地球較近，視直徑略大於太陽，月球的<span class="highlight">本影錐（Umbra）</span>尖端觸及地表。',
-      '位於本影帶內的觀測者會看見太陽被完全遮蔽，白晝瞬間變暗，並露出平時無法肉眼看見的銀白色<span class="highlight">日冕（Corona）</span>、日珥與倍里珠（Baily\'s beads）。'
-    ],
-    human: [
-      '<span class="highlight">《尚書》仲康日食與救日</span>：古人視日蝕為君王失德的天譴警示，《尚書·胤征》記載夏代天文官羲和因沉迷飲酒漏報日食而獲罪；民間則稱「天狗食日」，會擊鼓鳴鑼以救日。',
-      '<span class="highlight">愛丁頓驗證廣義相對論 (1919)</span>：英國天文學家愛丁頓趁日全蝕遮蔽強光時，拍攝太陽邊緣的背景恆星，證實星光受太陽重力場偏折，成為愛因斯坦廣義相對論最著名的實驗鐵證。'
-    ]
-  },
-  annular_solar: {
-    tag: '朔望與交食・農曆初一 (朔)',
-    title: '日環蝕 (Annular Solar Eclipse)',
-    subtitle: '排列：太陽 － 月球 － 地球（落入偽本影區）',
-    m1: ['發生農曆日期', '初一 (朔 New Moon)'],
-    m2: ['黃白交點條件', '月球位於交點附近 (約0°偏移)'],
-    m3: ['地月距離狀態', '遠地點附近 (視直徑 < 太陽)'],
-    m4: ['關鍵光影區域', '偽本影區 (Antumbra)'],
-    astro: [
-      '由於月球繞地軌道為橢圓形，當月球位於<span class="highlight">遠地點</span>附近發生日蝕時，月球的視直徑小於太陽。',
-      '月球的本影錐在半空中交會結束，未能觸及地球表面；地表觀測者落入本影錐延伸出去的<span class="highlight">偽本影區（Antumbra）</span>。',
-      '月球僅能遮住太陽中心大部分區域，邊緣露出一圈耀眼的<span class="highlight">「金環（Ring of Fire）」</span>。'
-    ],
-    human: [
-      '<span class="highlight">台灣百年日環蝕 (2020/6/21)</span>：2020 年夏至當天，日環蝕環食帶正好橫越台灣金門、澎湖、嘉義、花蓮與台東，「夏至正午立竿無影」與「上帝的金戒指」同日登場，成為台灣近代極受矚目的天文盛事。',
-      '<span class="highlight">曆法與軌道橢圓證明</span>：古代曆算家（如東漢劉洪《乾象曆》、隋代劉焯）透過觀測日全蝕與日環蝕的差異，推知月球與地球距離有遠近變化（月行遲疾）。'
-    ]
-  },
-  partial_solar: {
-    tag: '朔望與交食・農曆初一 (朔)',
-    title: '日偏蝕 (Partial Solar Eclipse)',
-    subtitle: '排列：太陽 － 月球 － 地球（落入半影區）',
-    m1: ['發生農曆日期', '初一 (朔 New Moon)'],
-    m2: ['黃白交點條件', '微幅偏離交點 / 位於半影區'],
-    m3: ['光影區域', '半影區 (Penumbra)'],
-    m4: ['地表可見範圍', '廣大半影覆蓋區 (數千公里)'],
-    astro: [
-      '觀測者位於月球的<span class="highlight">半影區（Penumbra）</span>內，或月球微幅偏離黃白交點，導致本影錐從地球極區上方/下方掠過。',
-      '從地表看去，月球僅遮掩了太陽的一部分，太陽如同被咬了一口的圓餅。'
-    ],
-    human: [
-      '<span class="highlight">甲骨文日食紀錄</span>：殷墟出土的商代甲骨文中，記載了多次「日有食之」的卜辭，是人類文明史上極珍貴的連續早期日蝕觀測史料，更協助現代學者推算商王在位年代與地球自轉減慢速率。'
-    ]
-  },
-  total_lunar: {
-    tag: '朔望與交食・農曆十五 (望)',
-    title: '月全蝕・血月 (Total Lunar Eclipse)',
-    subtitle: '排列：太陽 － 地球 － 月球（完全進入地球本影）',
-    m1: ['發生農曆日期', '十五或十六 (望 Full Moon)'],
-    m2: ['黃白交點條件', '月球位於交點附近 (約0°偏移)'],
-    m3: ['光學機制', '大氣瑞利散射與折射'],
-    m4: ['可見範圍', '整個夜半球皆可同時觀測'],
-    astro: [
-      '地球位於太陽與月球之間，且滿月正好通過黃白交點，整顆月球完全進入地球龐大的<span class="highlight">本影錐（Umbra）</span>中。',
-      '<span class="highlight">為什麼月全蝕是暗紅色的（血月）？</span>太陽光穿過地球大氣層時，波長較短的藍紫光被空氣分子強烈散射（瑞利散射），而波長較長的<span class="highlight">紅橙光</span>穿透大氣並經折射彎入地球本影內，照亮月面，使其呈現神秘的古銅暗紅色。'
-    ],
-    human: [
-      '<span class="highlight">亞里斯多德證明地球是圓的</span>：西元前 4 世紀，古希臘哲學家亞里斯多德在《論天》中指出，無論月蝕在何種角度發生，地球投射在月球上的本影邊緣永遠是<span class="highlight">圓弧形</span>，這是人類科學史上證明「地球為球體」最直觀的證據。',
-      '<span class="highlight">哥倫布與大航海經度測量</span>：由於月蝕在地球夜半球是「絕對同時發生」的，大航海時代常透過比對兩地觀測月蝕的當地時間差，來推算地理經度。'
-    ]
-  },
-  partial_lunar: {
-    tag: '朔望與交食・農曆十五 (望)',
-    title: '月偏蝕 (Partial Lunar Eclipse)',
-    subtitle: '排列：太陽 － 地球 － 月球（部分進入地球本影）',
-    m1: ['發生農曆日期', '十五或十六 (望 Full Moon)'],
-    m2: ['黃白交點條件', '微幅偏離黃白交點 (約 2°~4°)'],
-    m3: ['光影區域', '橫跨地球本影與半影邊界'],
-    m4: ['可見範圍', '整個夜半球皆可同時觀測'],
-    astro: [
-      '滿月時月球距離黃白交點稍遠，僅有一部分月面進入地球的<span class="highlight">本影區</span>，其餘部分留在半影區。',
-      '進入本影的部分呈現暗紅或深黑色缺角，清晰展現地球陰影的圓弧曲率。'
-    ],
-    human: [
-      '<span class="highlight">沙羅週期 (Saros Cycle)</span>：古巴比倫與中國古代天文學家透過長期記錄日月偏蝕與全蝕，發現每經過約 18 年 11 天 8 小時（6585.32 天），日、地、月與黃白交點的相對幾何位置會高度重複，從而能精準預測交食。'
-    ]
-  },
-  normal_syzygy: {
-    tag: '黃白交角 5.14° 的關鍵影響',
-    title: '一般朔望（為什麼不是每個月都有日月蝕？）',
-    subtitle: '月球軌道（白道）與地球軌道（黃道）夾角約 5.14°',
-    m1: ['發生農曆日期', '每月初一 (朔) / 十五 (望)'],
-    m2: ['黃白交點條件', '遠離交點 (垂直偏移最大約 5°)'],
-    m3: ['光影狀態', '月球陰影/月體從地球上下掠過'],
-    m4: ['觀測結果', '一般新月 / 一般滿月 (無蝕象)'],
-    astro: [
-      '月球繞地球公轉的<span class="highlight">白道面</span>，與地球繞太陽公轉的<span class="highlight">黃道面</span>並未重合，而是存在約 <span class="highlight">5.14° 的傾角</span>。',
-      '因此在一年中絕大多數的農曆初一（朔）與十五（望），月球會位於黃道面的上方（北側）或下方（南側）。',
-      '此時月球的本影錐會從地球上方或下方直接掠過太空中，地球本影也照不到月球，因此不會發生日蝕或月蝕。唯有當朔望恰巧落在兩軌道交界處（<span class="highlight">黃白交點：羅睺、計都</span>）附近時才會發生蝕象。'
-    ],
-    human: [
-      '<span class="highlight">陰陽合曆的智慧</span>：華人傳統農曆屬於「陰陽合曆」，以朔望月（約 29.53 天）定每月初一與十五，再以太陽在黃道上的位置（二十四節氣，如二分二至）置閏校準四季，完美融合了月球相位與太陽回歸年。'
-    ]
-  }
-};
+    function onOrbitSlider(val) {
+      state.orbitAngle = parseFloat(val);
+      updateDayLabel(state.orbitAngle);
+      updateSeasonInfoByAngle(state.orbitAngle);
+    }
 
-// 視窗尺寸自適應
-function resizeCanvas() {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width * window.devicePixelRatio;
-  canvas.height = rect.height * window.devicePixelRatio;
-  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+    function updateDayLabel(angle) {
+      // 計算太陽赤緯 (直射緯度): -23.5 * sin(angle - 180) -> angle=90為+23.5, angle=270為-23.5
+      const rad = (angle * Math.PI) / 180;
+      const decl = (23.5 * Math.sin(rad)).toFixed(1);
+      const latStr = decl > 0 ? `${decl}°N` : (decl < 0 ? `${Math.abs(decl)}°S` : `0.0° (赤道)`);
+      document.getElementById('day-label').textContent = `黃經 ${Math.round(angle)}° (直射 ${latStr})`;
+      if (state.mode === 'seasons') {
+        document.getElementById('stat1-val').textContent = latStr;
+      }
+    }
 
-// 滑鼠拖曳改變俯仰視角
-let isDragging = false, lastY = 0;
-canvas.addEventListener('mousedown', e => { isDragging = true; lastY = e.clientY; });
-window.addEventListener('mouseup', () => { isDragging = false; });
-window.addEventListener('mousemove', e => {
-  if (!isDragging || state.mode !== 'seasons') return;
-  const dy = e.clientY - lastY;
-  lastY = e.clientY;
-  state.tiltPitch = Math.max(0.2, Math.min(0.95, state.tiltPitch + dy * 0.003));
-  state.topView = state.tiltPitch > 0.85;
-});
+    function updateSeasonInfoByAngle(angle) {
+      // 依最接近的節氣顯示解說
+      const norm = ((angle % 360) + 360) % 360;
+      if (norm >= 315 || norm < 45) renderInfoCard(seasonData.spring);
+      else if (norm >= 45 && norm < 135) renderInfoCard(seasonData.summer);
+      else if (norm >= 135 && norm < 225) renderInfoCard(seasonData.autumn);
+      else renderInfoCard(seasonData.winter);
+      updateDayLabel(angle);
+    }
 
-// 模式與按鈕切換邏輯
-function switchMode(mode) {
-  state.mode = mode;
-  document.getElementById('tab-seasons').classList.toggle('active', mode === 'seasons');
-  document.getElementById('tab-eclipse').classList.toggle('active', mode === 'eclipse');
-  document.getElementById('controls-seasons').style.display = mode === 'seasons' ? 'flex' : 'none';
-  document.getElementById('controls-eclipse').style.display = mode === 'eclipse' ? 'flex' : 'none';
-  document.getElementById('toggle-view').style.display = mode === 'seasons' ? 'inline-block' : 'none';
-  
-  if (mode === 'seasons') {
-    updateSeasonInfo();
-  } else {
-    updateEclipseInfo();
-  }
-}
+    function setEclipse(typeKey) {
+      const data = eclipseData[typeKey];
+      if (!data) return;
+      state.eclipseType = typeKey;
+      state.lunarAngle = data.lunarAngle;
+      state.nodeOffset = data.nodeOffset;
+      state.moonDistance = data.dist;
+      document.getElementById('lunar-slider').value = data.lunarAngle;
+      document.getElementById('lunar-label').textContent = `月球相位角：${data.lunarAngle}°`;
+      renderInfoCard(data);
+    }
 
-function toggleOption(opt) {
-  if (opt === 'lines') {
-    state.
+    function onLunarSlider(val) {
+      state.lunarAngle = parseFloat(val);
+      document.getElementById('lunar-label').textContent = `月球相位角：${Math.round(state.lunarAngle)}°`;
+    }
+
+    function renderInfoCard(data) {
+      document.getElementById('info-badge').textContent = data.badge;
+      document.getElementById('info-title').textContent = data.title;
+      document.getElementById('info-subtitle').textContent = data.subtitle;
+      document.getElementById('stat1-val').textContent = data.stat1;
+      document.getElementById('stat2-val').textContent = data.stat2;
+
+      const astroUl = document.getElementById('astro-list');
+      astroUl.innerHTML = data.astro.map(item => `<li>${item}</li>`).join('');
+
+      const cultureUl = document.getElementById('culture-list');
+      cultureUl.innerHTML = data.culture.map(item => `<li>${item}</li>`).join('');
+    }
+
+    // 明確掛載至 window 全域物件，徹底杜絕 ReferenceError
+    window.switchMode = switchMode;
+    window.toggleOption = toggleOption;
+    window.setSeason = setSeason;
+    window.setEclipse = setEclipse;
+    window.onOrbitSlider = onOrbitSlider;
+    window.onLunarSlider = onLunarSlider;
+
+    // ==========================================
+    // 3. 視覺渲染引擎 (Canvas 2D/3D 投影與子母視窗)
+    // ==========================================
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 繪製四季模式
+    function drawSeasonsMode(w, h) {
+      const cx = w * 0.45;
+      const cy = h * 0.46;
+      const rx = Math.min(w, h) * 0.34;
+      const ry = rx * 0.42; // 橢圓傾斜視角
+
+      // 1. 繪製黃道面公轉軌道
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.stroke();
+      ctx.restore();
+
+      // 節氣方位標記 (右:春分0, 上:夏至90, 左:秋分180, 下:冬至270)
+      const labels = [
+        { ang: 0, text: '春分 (3/21)', dx: rx + 45, dy: 0 },
+        { ang: 90, text: '夏至 (6/21)', dx: 0, dy: -ry - 25 },
+        { ang: 180, text: '秋分 (9/23)', dx: -rx - 45, dy: 0 },
+        { ang: 270, text: '冬至 (12/22)', dx: 0, dy: ry + 30 }
+      ];
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center';
+      labels.forEach(lb => {
+        ctx.fillText(lb.text, cx + lb.dx, cy + lb.dy);
+      });
+
+      // 2. 計算地球位置 (逆時針公轉: 0右, 90上, 180左, 270下)
+      const rad = (state.orbitAngle * Math.PI) / 180;
+      const ex = cx + rx * Math.cos(-rad);
+      const ey = cy + ry * Math.sin(-rad);
+
+      // 3. 繪製太陽
+      const sunGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 42);
+      sunGrad.addColorStop(0, '#fffbeb');
+      sunGrad.addColorStop(0.4, '#fbbf24');
+      sunGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 42, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 太陽直射光線
+      if (state.options.rays) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(ex, ey);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 4. 繪製軌道上的地球 (地軸固定向右上方傾斜 23.5°)
+      drawEarthWithTilt(ex, ey, 22, cx, cy);
+
+      // 5. 右上角放大剖面子視窗：「太陽直射緯度與晨昏線特寫」
+      drawSeasonInset(w - 230, 80, 200, 200, state.orbitAngle);
+    }
+
+    function drawEarthWithTilt(x, y, r, sunX, sunY) {
+      const tiltRad = (23.5 * Math.PI) / 180; // 地軸恆定傾斜角
+
+      // 地球本體
+      ctx.save();
+      ctx.translate(x, y);
+
+      // 海洋底色
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#1d4ed8';
+      ctx.fill();
+
+      // 背光面陰影 (晨昏線)
+      if (state.options.shadow) {
+        const lightAngle = Math.atan2(y - sunY, x - sunX);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, lightAngle - Math.PI / 2, lightAngle + Math.PI / 2);
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.75)';
+        ctx.fill();
+      }
+
+      // 地軸與赤道線 (恆指向右上角北極星)
+      if (state.options.axis) {
+        ctx.rotate(tiltRad);
+        // 自轉軸
+        ctx.beginPath();
+        ctx.moveTo(0, -r * 1.45);
+        ctx.lineTo(0, r * 1.45);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // 赤道
+        ctx.beginPath();
+        ctx.moveTo(-r, 0);
+        ctx.lineTo(r, 0);
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 右上角放大地球受光與回歸線剖面圖
+    function drawSeasonInset(x, y, w, h, orbitAngle) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('地球受光與直射緯度剖面', x + w / 2, y + 22);
+
+      const cx = x + w / 2;
+      const cy = y + h / 2 + 10;
+      const r = 52;
+
+      // 計算太陽直射赤緯 (-23.5 ~ +23.5)
+      const decl = 23.5 * Math.sin((orbitAngle * Math.PI) / 180);
+      const declRad = (decl * Math.PI) / 180;
+
+      // 繪製地球放大圖 (此視角固定地軸傾斜，調整陽光入射角以呈現直射點移動)
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#2563eb';
+      ctx.fill();
+
+      // 繪製赤道、北回歸線、南回歸線、北極圈
+      if (state.options.axis) {
+        const drawLatLine = (latDeg, color, dashed) => {
+          const ly = -r * Math.sin((latDeg * Math.PI) / 180);
+          const lx = r * Math.cos((latDeg * Math.PI) / 180);
+          ctx.beginPath();
+          if (dashed) ctx.setLineDash([3, 3]);
+          else ctx.setLineDash([]);
+          ctx.moveTo(-lx, ly);
+          ctx.lineTo(lx, ly);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        };
+        drawLatLine(0, '#ffffff', false);       // 赤道
+        drawLatLine(23.5, '#fbbf24', true);     // 北回歸線
+        drawLatLine(-23.5, '#fbbf24', true);    // 南回歸線
+        drawLatLine(66.5, '#38bdf8', true);     // 北極圈
+
+        // 地軸
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(0, -r - 12);
+        ctx.lineTo(0, r + 12);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#f87171';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('N', 10, -r - 4);
+      }
+
+      // 繪製晨昏線與夜半球 (隨太陽赤緯旋轉)
+      if (state.options.shadow) {
+        ctx.save();
+        ctx.rotate(-declRad);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2);
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.72)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 標示太陽直射光束箭頭 (從左側射入對應緯度)
+      if (state.options.rays) {
+        const hitY = -r * Math.sin(declRad);
+        const hitX = -r * Math.cos(declRad);
+        ctx.beginPath();
+        ctx.moveTo(-r - 38, hitY);
+        ctx.lineTo(hitX, hitY);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // 直射點亮斑
+        ctx.beginPath();
+        ctx.arc(hitX, hitY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#fde047';
+        ctx.fill();
+      }
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    // 繪製日月蝕模式
+    function drawEclipseMode(w, h) {
+      const cy = h * 0.44;
+      const sunX = w * 0.12;
+      const earthX = w * 0.52;
+      const sunR = 54;
+      const earthR = 28;
+      const moonR = 10;
+
+      // 1. 繪製太陽
+      const sunGrad = ctx.createRadialGradient(sunX, cy, 8, sunX, cy, sunR * 1.4);
+      sunGrad.addColorStop(0, '#ffffff');
+      sunGrad.addColorStop(0.5, '#fbbf24');
+      sunGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath();
+      ctx.arc(sunX, cy, sunR * 1.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 太陽平行光束
+      if (state.options.rays) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.18)';
+        ctx.lineWidth = 1.5;
+        for (let offset = -45; offset <= 45; offset += 15) {
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, cy + offset);
+          ctx.lineTo(w * 0.85, cy + offset);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 2. 計算月球位置
+      const orbitR = 135 * state.moonDistance;
+      const lRad = (state.lunarAngle * Math.PI) / 180;
+      // 180度在太陽與地球中間(左)，0度在地球後方(右)
+      const mx = earthX + orbitR * Math.cos(lRad);
+      // 結合黃白交角偏移
+      const my = cy + orbitR * 0.35 * Math.sin(lRad) - state.nodeOffset * 28;
+
+      // 月球軌道虛線
+      if (state.options.axis) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(earthX, cy - state.nodeOffset * 14, orbitR, orbitR * 0.35, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 繪製地球本影與半影錐
+      if (state.options.shadow) {
+        // 地球半影
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(earthX, cy - earthR);
+        ctx.lineTo(earthX + 260, cy - earthR * 2.2);
+        ctx.lineTo(earthX + 260, cy + earthR * 2.2);
+        ctx.lineTo(earthX, cy + earthR);
+        ctx.closePath();
+        ctx.fill();
+
+        // 地球本影錐
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(earthX, cy - earthR);
+        ctx.lineTo(earthX + 240, cy);
+        ctx.lineTo(earthX, cy + earthR);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 4. 繪製地球
+      ctx.beginPath();
+      ctx.arc(earthX, cy, earthR, 0, Math.PI * 2);
+      ctx.fillStyle = '#2563eb';
+      ctx.fill();
+      // 地球夜半球
+      ctx.beginPath();
+      ctx.arc(earthX, cy, earthR, -Math.PI / 2, Math.PI / 2);
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.75)';
+      ctx.fill();
+
+      // 5. 繪製月球本影與半影錐
+      if (state.options.shadow) {
+        const umbraLen = 138; // 本影錐長度
+        // 月球半影
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(mx, my - moonR);
+        ctx.lineTo(mx + 180, my - moonR * 3.2);
+        ctx.lineTo(mx + 180, my + moonR * 3.2);
+        ctx.lineTo(mx, my + moonR);
+        ctx.closePath();
+        ctx.fill();
+
+        // 月球本影錐
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+        ctx.beginPath();
+        ctx.moveTo(mx, my - moonR);
+        ctx.lineTo(mx + umbraLen, my);
+        ctx.lineTo(mx, my + moonR);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 6. 繪製月球 (若處於月全蝕則染為暗紅血月色)
+      const isTotalLunar = (Math.abs(state.lunarAngle - 0) < 15 || Math.abs(state.lunarAngle - 360) < 15) && Math.abs(state.nodeOffset) < 0.2;
+      ctx.beginPath();
+      ctx.arc(mx, my, moonR, 0, Math.PI * 2);
+      ctx.fillStyle = isTotalLunar ? '#dc2626' : '#cbd5e1';
+      ctx.fill();
+
+      // 7. 右上角「地表觀測者天空視角」子母畫面
+      drawEclipseSkyInset(w - 230, 80, 200, 200);
+    }
+
+    function drawEclipseSkyInset(x, y, w, h) {
+      ctx.save();
+      ctx.fillStyle = '#020617';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('地球觀測者視角 (天象模擬)', x + w / 2, y + 22);
+
+      const cx = x + w / 2;
+      const cy = y + h / 2 + 10;
+      const r = 44;
+
+      const isSolarSide = Math.abs(state.lunarAngle - 180) < 45;
+
+      if (isSolarSide) {
+        // 日蝕觀測視角：繪製日冕與太陽
+        const corona = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.55);
+        corona.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        corona.addColorStop(0.4, 'rgba(251, 191, 36, 0.6)');
+        corona.addColorStop(1, 'rgba(251, 191, 36, 0)');
+        ctx.fillStyle = corona;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.55, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 太陽本體
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#fde047';
+        ctx.fill();
+
+        // 月球黑影遮蔽
+        const moonApparentR = state.moonDistance > 1.1 ? r * 0.86 : r * 1.03;
+        const offsetY = -state.nodeOffset * r * 1.3;
+        const offsetX = (state.lunarAngle - 180) * 1.8;
+        ctx.beginPath();
+        ctx.arc(cx + offsetX, cy + offsetY, moonApparentR, 0, Math.PI * 2);
+        ctx.fillStyle = '#020617';
+        ctx.fill();
+      } else {
+        // 月蝕觀測視角：繪製滿月與地球本影（含血月效果）
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fill();
+
+        // 地球本影遮罩
+        const shadowOffsetY = state.nodeOffset * r * 1.2;
+        const shadowOffsetX = (state.lunarAngle > 180 ? state.lunarAngle - 360 : state.lunarAngle) * 1.8;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.85, 0, Math.PI * 2);
+        ctx.clip();
+
+        ctx.beginPath();
+        ctx.arc(cx - shadowOffsetX, cy + shadowOffsetY, r * 1.35, 0, Math.PI * 2);
+        ctx.fillStyle = Math.abs(state.nodeOffset) < 0.25 ? 'rgba(185, 28, 28, 0.82)' : 'rgba(9, 13, 22, 0.88)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    // ==========================================
+    // 4. 動畫主迴圈與初始化
+    // ==========================================
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (state.options.anim) {
+        if (state.mode === 'seasons') {
+          state.orbitAngle = (state.orbitAngle + 0.35) % 360;
+          document.getElementById('orbit-slider').value = state.orbitAngle;
+          updateSeasonInfoByAngle(state.orbitAngle);
+        } else {
+          state.lunarAngle = (state.lunarAngle + 0.4) % 360;
+          document.getElementById('lunar-slider').value = state.lunarAngle;
+          document.getElementById('lunar-label').textContent = `月球相位角：${Math.round(state.lunarAngle)}°`;
+        }
+      }
+
+      if (state.mode === 'seasons') {
+        drawSeasonsMode(canvas.width, canvas.height);
+      } else {
+        drawEclipseMode(canvas.width, canvas.height);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // 啟動預設狀態
+    setSeason('spring');
+    animate();
+  </script>
+</body>
+</html>
